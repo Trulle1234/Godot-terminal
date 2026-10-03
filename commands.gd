@@ -1,7 +1,7 @@
 class_name TerminalCommands
 extends RefCounted
 
-const COMMAND_BLACKLIST = ["_init", "execute", "get_command_names", "parse_line", "handle_output"]
+const COMMAND_BLACKLIST = ["_init", "execute", "get_command_names", "parse_line", "handle_output", "solve_path", "output_to_text"]
 
 const COMMAND_INFO = {
 	"pwd": "Print the current working directory",
@@ -40,7 +40,7 @@ func execute(command_line) -> void:
 	if command in get_command_names():
 		handle_output(args, Callable(self, command))
 	else:
-		terminal.write_output(command + ": not found", Color("#FF628C"))
+		terminal.write_output(command + ": not found", "red")
 
 func get_command_names():
 	var command_names = []
@@ -68,32 +68,43 @@ func parse_line(line):
 	return parts
 
 func handle_output(args, function):
-	if args.size() >= 2 and args[-2] == ">":
-		var output_path = args[-1].replace("\\", "/")
-		var command_args = args.slice(0, -2)
-		var func_res = function.call(command_args)
-			
-		if not output_path.is_absolute_path():
-			output_path = terminal.working_dir.path_join(output_path)
+	var options = []
+	var new_args = []
+	var parsing_options = true
+
+	for arg in args:
+		if parsing_options and arg == "--":
+			parsing_options = false
+		elif parsing_options and arg.begins_with("-"):
+			options.append(arg)
+		else:
+			new_args.append(arg)
+
+	args = new_args
 		
-		output_path = output_path.simplify_path().replace("\\", "/")
+	if args.size() >= 2 and args[-2] == ">":
+		var output_path = solve_path(args[-1])
+		var command_args = args.slice(0, -2)
+		var func_res = function.call(command_args, options)
+		
 		var file = FileAccess.open(output_path, FileAccess.WRITE)
 		
 		if not file:
-			terminal.write_output("cannot create file: " + args[-1], Color("#FF628C"))
+			terminal.write_output("Cannot create file: " + args[-1], "red")
 			return
-		
-		if func_res is Array:
-			file.store_string(str(func_res[0]))
-		elif func_res:
-			file.store_string(str(func_res))
-		
+			
+		if func_res:
+			file.store_string(output_to_text(func_res))
+			
 		file.close()
 		return
 	
-	var func_res = function.call(args)
+	var func_res = function.call(args, options)
 	
 	if func_res is Array:
+		if func_res.is_empty():
+			return
+		
 		if func_res[0] is Array:
 			for item in func_res:
 				if item is Array and item.size() >= 2:
@@ -104,90 +115,123 @@ func handle_output(args, function):
 		if func_res:
 			terminal.write_output(func_res)
 
-func pwd(_args):
+func output_to_text(output):
+	if output is Array:
+		if output.is_empty():
+			return ""
+		
+		if output[0] is Array:
+			var text = ""
+			
+			for item in output:
+				if item is Array and not item.is_empty():
+					text += str(item[0]) + "\n"
+					
+			return text
+		
+		return str(output[0])
+	
+	return str(output)
+
+func solve_path(path):
+	path = path.replace("\\", "/")
+	
+	if path == "~":
+		return terminal.get_home_dir()
+	elif path.begins_with("~/"):
+		return (terminal.get_home_dir() + path.substr(1)).simplify_path()
+	
+	if path == "/" and OS.has_feature("windows"):
+		var drive = terminal.working_dir.get_slice(":", 0)
+		return drive + ":/"
+	
+	if not path.is_absolute_path():
+		path = terminal.working_dir.path_join(path)
+	
+	return path.simplify_path().replace("\\", "/")
+
+func pwd(_args, _options):
 	return terminal.working_dir
 	
-func cd(args):
+func cd(args, _options):
 	if args.is_empty():
 		terminal.set_working_dir(terminal.get_home_dir())
 		return
 	
-	var target_path = args[0].replace("\\", "/")
+	var path = solve_path(args[0])
 	
-	if target_path == "/":
-		if OS.has_feature("windows"):
-			var current_drive = terminal.working_dir.get_slice(":", 0)
-			target_path = current_drive + ":/"
-		else:
-			target_path = "/"
-	elif target_path == "..":
-		target_path = terminal.working_dir.get_base_dir()
+	if DirAccess.dir_exists_absolute(path):
+		terminal.set_working_dir(path)
+		return
 	
-	if not target_path.is_absolute_path():
-		target_path = terminal.working_dir.path_join(target_path)
-	
-	target_path = target_path.simplify_path().replace("\\", "/")
-		
-	if DirAccess.dir_exists_absolute(target_path):
-		terminal.set_working_dir(target_path)
-	else:
-		return ["cd: " + args[0] + ": No such directory", Color("#FF628C")]
+	return ["cd: " + args[0] + ": No such directory", "red"]
 
-func mkdir(args):
+func mkdir(args, options):
 	for arg in args:
-		var path = arg.replace("\\", "/")
-	
-		if not path.is_absolute_path():
-			path = terminal.working_dir.path_join(path)
+		var path = solve_path(arg)
 		
-		var err = DirAccess.make_dir_absolute(path)
+		var err
+		if "-p" in options:
+			err = DirAccess.make_dir_recursive_absolute(path)
+		else:
+			err = DirAccess.make_dir_absolute(path)
 		
 		if err != OK:
-			return ["mkdir: cannot create directory '" + arg + "'", Color("#FF628C")]
+			return ["mkdir: cannot create directory '" + arg + "'", "red"]
 
-func rmdir(args):
+func rmdir(args, _options):
 	for arg in args:
-		var path = arg.replace("\\", "/")
-	
-		if not path.is_absolute_path():
-			path = terminal.working_dir.path_join(path)
+		var path = solve_path(arg)
 		
 		if DirAccess.dir_exists_absolute(path):
 			var err = DirAccess.remove_absolute(path)
 			
 			if err != OK:
-				return ["rmdir: failed to remove '" + arg + "'", Color("#FF628C")]
+				return ["rmdir: failed to remove '" + arg + "'", "red"]
 		else:
-			return ["rmdir: " + arg + ": No such directory", Color("#FF628C")]
+			return ["rmdir: " + arg + ": No such directory", "red"]
 		
-func ls(_args):
-	var dirs = DirAccess.get_directories_at(terminal.working_dir)
-	var files = DirAccess.get_files_at(terminal.working_dir)
+func ls(args, _options):
+	if args.is_empty():
+		args.append(terminal.working_dir)
 	
 	var all = []
 	
-	for dir in dirs:
-		all.append([dir + "/", Color("#0088FF")])
-	for file in files:
-		all.append([file, terminal.get_theme_color("font_color")])
-	
-	all.sort_custom(func(a, b): return a[0] < b[0])
+	for arg in args:
+		var path = solve_path(arg)
+		
+		if not DirAccess.dir_exists_absolute(path):
+			return ["ls: " + arg + ": No such directory", "red"]
+		
+		var dirs = DirAccess.get_directories_at(path)
+		var files = DirAccess.get_files_at(path)
+		
+		var all_here = []
+		
+		for dir in dirs:
+			all_here.append([dir + "/", "blue"])
+		for file in files:
+			all_here.append([file, "white"])
+		
+		all_here.sort_custom(func(a, b): return a[0] < b[0])
+		
+		all.append([path.get_file() + ":", "cyan"])
+		all.append_array(all_here)
+		if not arg == args[args.size() - 1]:
+			all.append([" ", "white"])
 	
 	return all
 
-func echo(args):
+func echo(args, _options):
 	var text = ""
 	for arg in args:
 		text += arg + "\n"
 	
 	return text
 
-func touch(args):
+func touch(args, _options):
 	for arg in args:
-		var path = arg.replace("\\", "/")
-		
-		if not path.is_absolute_path():
-			path = terminal.working_dir.path_join(path)
+		var path = solve_path(arg)
 		
 		if FileAccess.file_exists(path):
 			continue
@@ -195,64 +239,74 @@ func touch(args):
 		var file = FileAccess.open(path, FileAccess.WRITE)
 		
 		if not file:
-			return ["touch: cannot touch '" + arg + "'", Color("#FF628C")]
+			return ["touch: cannot touch '" + arg + "'", "red"]
 		
 		file.close()
 
-func cat(args):
+func cat(args, options):
 	var text = ""
 	for arg in args:
-		var path = arg.replace("\\", "/")
-	
-		if not path.is_absolute_path():
-			path = terminal.working_dir.path_join(path)
+		var path = solve_path(arg)
 		
 		var file = FileAccess.open(path, FileAccess.READ)
 		
 		if not file:
-			return ["cat: " + arg + ": No such file", Color("#FF628C")]
+			return ["cat: " + arg + ": No such file", "red"]
 		
 		text += file.get_as_text()
 		file.close()
-		
+	
+	if "-n" in options:
+		var text_lines = text.split("\n")
+		text = ""
+		for i in text_lines.size():
+			text += str(i + 1) + " " + text_lines[i] + "\n"
+			
 	return text
 
-func wc(args):
+func wc(args, options):
 	var text = ""
 	for arg in args:
-		var path = arg.replace("\\", "/")
-	
-		if not path.is_absolute_path():
-			path = terminal.working_dir.path_join(path)
+		var path = solve_path(arg)
 		
 		var file = FileAccess.open(path, FileAccess.READ)
 		
 		if not file:
-			return ["wc: " + arg + ": No such file", Color("#FF628C")]
+			return ["wc: " + arg + ": No such file", "red"]
 		
 		var text_content = file.get_as_text()
-		var lines = text_content.split(" ", false).size()
-		var words = text_content.split("\n", false).size()
-		var chars = text_content.length()
+		var lines = text_content.split("\n", false).size()
+		var word_regex = RegEx.create_from_string(r"\S+")
+		var words = word_regex.search_all(text_content).size()
+		var bytes = text_content.to_utf8_buffer().size()
 		
-		text += str(lines) + " " + str(words) + " " + str(chars) + " " + path.get_file() + "\n"
+		var text_line = ""
+		
+		if "-l" in options:
+			text_line += str(lines) + " "
+		if "-w" in options:
+			text_line += str(words) + " "
+		if "-c" in options:
+			text_line += str(bytes) + " "
+		
+		if text_line == "":
+			text_line += str(lines) + " " + str(words) + " " + str(bytes) + " "
+		
+		text += text_line + path.get_file() + "\n"
 		file.close()
 		
 	return text
 
-func sort(args):
+func sort(args, _options):
 	var lines = []
 	
 	for arg in args:
-		var path = arg.replace("\\", "/")
-	
-		if not path.is_absolute_path():
-			path = terminal.working_dir.path_join(path)
+		var path = solve_path(arg)
 		
 		var file = FileAccess.open(path, FileAccess.READ)
 		
 		if not file:
-			return ["wc: " + arg + ": No such file", Color("#FF628C")]
+			return ["sort: " + arg + ": No such file", "red"]
 				
 		for line in file.get_as_text().split("\n", false):
 			lines.append(line)
@@ -266,31 +320,27 @@ func sort(args):
 	
 	return text
 
-func cp(args):
-	if not args[0] and not args[1]:
-		return ["cp: missing target file or directory", Color("#FF628C")]
+func cp(args, _options):
+	if args.size() < 2:
+		return ["cp: missing target file or directory", "red"]
 	
-	var path = args[0].replace("\\", "/")
-	var res_path = args[1].replace("\\", "/")
+	var path = solve_path(args[0])
+	var res_path = solve_path(args[1])
 	
-	if not path.is_absolute_path():
-		path = terminal.working_dir.path_join(path)
-	if not res_path.is_absolute_path():
-		res_path = terminal.working_dir.path_join(res_path)
+	if DirAccess.dir_exists_absolute(res_path):
+		res_path = res_path.path_join(path.get_file())
 	
 	var err = DirAccess.copy_absolute(path, res_path)
 	
 	if err != OK:
-		return ["cp: " + args[0] + ": No such file or directory", Color("#FF628C")]
+		return ["cp: " + args[0] + ": No such file or directory", "red"]
 		
-func mv(args):
-	var old_path = args[0].replace("\\", "/")
-	var new_path = args[1].replace("\\", "/")
+func mv(args, _options):
+	if args.size() < 2:
+		return ["mv: missing target file or directory", "red"]
 	
-	if not old_path.is_absolute_path():
-		old_path = terminal.working_dir.path_join(old_path)
-	if not new_path.is_absolute_path():
-		new_path = terminal.working_dir.path_join(new_path)
+	var old_path = solve_path(args[0])
+	var new_path = solve_path(args[1])
 	
 	if DirAccess.dir_exists_absolute(new_path):
 		new_path = new_path.path_join(old_path.get_file())
@@ -298,36 +348,33 @@ func mv(args):
 	var err = DirAccess.rename_absolute(old_path, new_path)
 	
 	if err != OK:
-		return ["mv: " + args[0] + ": No such file or directory", Color("#FF628C")]
+		return ["mv: cannot move '" + args[0] + "'", "red"]
 
-func rm(args):
+func rm(args, _options):
 	for arg in args:
-		var path = arg.replace("\\", "/")
-	
-		if not path.is_absolute_path():
-			path = terminal.working_dir.path_join(path)
+		var path = solve_path(arg)
 		
 		if FileAccess.file_exists(path):
 			var err = DirAccess.remove_absolute(path)
 			
 			if err != OK:
-				return ["rm: failed to remove '" + arg + "'", Color("#FF628C")]
+				return ["rm: failed to remove '" + arg + "'", "red"]
 		else:
-			return ["rm: " + arg + ": No such file", Color("#FF628C")]
+			return ["rm: " + arg + ": No such file", "red"]
 
-func uname(_args):
+func uname(_args, _options):
 	return OS.get_name()
 
-func whoami(_args):
+func whoami(_args, _options):
 	if OS.has_environment("USERNAME"):
 		return OS.get_environment("USERNAME")
 	elif OS.has_environment("USER"):
 		return OS.get_environment("USER")
 
-func clear(_args):
+func clear(_args, _options):
 	terminal.clear_and_reset_colors()
 	
-func help(args):
+func help(args, _options):
 	var text = ""
 	
 	if args:

@@ -32,8 +32,8 @@ func _ready() -> void:
 	last_valid_text = text
 	
 	# highlighting
-	highlighter.set_span_color(get_line_count() - 1, 0, prompt.length(), Color("#3AD900"))
-	highlighter.add_keywords(recognized_commands, Color("#FFC600"))
+	highlighter.set_span_color(get_line_count() - 1, 0, prompt.length(), "green")
+	highlighter.add_keywords(recognized_commands, "yellow")
 
 # handle enter presses
 func _gui_input(event: InputEvent) -> void:
@@ -45,16 +45,17 @@ func _gui_input(event: InputEvent) -> void:
 		
 		commands.execute(current_command)
 		
-		entered_commands.append(current_command)
-		command_preview_i = entered_commands.size()
-		last_previewd_command = ""
+		if current_command.strip_edges() != "":
+			entered_commands.append(current_command)
+			command_preview_i = entered_commands.size()
+			last_previewd_command = ""
 		
 		if current_command == "clear":
 			text += prompt
 		else:
 			text += "\n" + prompt
 		
-		highlighter.set_span_color(get_line_count() - 1, 0, prompt.length(), Color("#3AD900"))
+		highlighter.set_span_color(get_line_count() - 1, 0, prompt.length(), "green")
 		
 		last_valid_text = text
 		
@@ -146,7 +147,7 @@ func get_home_dir():
 		return OS.get_environment("HOME")
 
 # write output to self
-func write_output(output, color=get_theme_color("font_color")):
+func write_output(output, color="white"):
 	var lines = output.split("\n", false)
 	
 	for line in lines:

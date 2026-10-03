@@ -5,16 +5,44 @@
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_sxuvd"]
 content_margin_left = 8.0
 content_margin_top = 8.0
-content_margin_right = 8.0
+content_margin_right = 16.0
 content_margin_bottom = 8.0
 bg_color = Color(0, 0, 0, 1)
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_e1x85"]
+bg_color = Color(0.50140685, 0.50140643, 0.5014065, 1)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_cjfk0"]
+bg_color = Color(0.601223, 0.601223, 0.6012228, 1)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_e1x85"]
+content_margin_top = 3.0
+content_margin_bottom = 2.0
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_vj6dk"]
+content_margin_left = 3.0
+content_margin_right = 2.0
+
 [resource]
-CodeEdit/colors/caret_background_color = Color(0.7764706, 0.7764706, 0.7764706, 1)
-CodeEdit/colors/caret_color = Color(0.7764706, 0.7764706, 0.7764706, 1)
-CodeEdit/colors/font_color = Color(0.7764706, 0.7764706, 0.7764706, 1)
+CodeEdit/colors/caret_background_color = Color(0.8627451, 0.8627451, 0.8627451, 1)
+CodeEdit/colors/caret_color = Color(0.8627451, 0.8627451, 0.8627451, 1)
+CodeEdit/colors/font_color = Color(0.8627451, 0.8627451, 0.8627451, 1)
 CodeEdit/constants/caret_width = 10
 CodeEdit/constants/line_spacing = 0
 CodeEdit/constants/outline_size = 0
 CodeEdit/fonts/font = ExtResource("1_e1x85")
 CodeEdit/styles/normal = SubResource("StyleBoxFlat_sxuvd")
+HScrollBar/styles/grabber = SubResource("StyleBoxFlat_e1x85")
+HScrollBar/styles/grabber_highlight = SubResource("StyleBoxFlat_cjfk0")
+HScrollBar/styles/scroll = SubResource("StyleBoxEmpty_e1x85")
+VScrollBar/styles/grabber = SubResource("StyleBoxFlat_e1x85")
+VScrollBar/styles/grabber_highlight = SubResource("StyleBoxFlat_cjfk0")
+VScrollBar/styles/scroll = SubResource("StyleBoxEmpty_vj6dk")

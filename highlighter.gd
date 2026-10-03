@@ -1,6 +1,17 @@
 class_name TerminalHighlighter
 extends SyntaxHighlighter
 
+const COLORS = {
+	"black": Color("#000000"),
+	"red": Color("#FF628C"),
+	"green": Color("#3AD900"),
+	"yellow": Color("#FFC600"),
+	"blue": Color("#0088FF"),
+	"pink": Color("#FB94FF"),
+	"cyan": Color("#80FCFF"),
+	"white": Color("#DCDCDCFF")
+}
+
 var rules = []
 var line_colors = {}
 var span_colors = {}
@@ -8,7 +19,6 @@ var span_colors = {}
 func _get_line_syntax_highlighting(line: int) -> Dictionary:
 	var color_map = {}
 	var text = get_text_edit().get_line(line)
-	var default_color = get_text_edit().get_theme_color("font_color")
 	
 	# full lines
 	if line_colors.has(line):
@@ -19,7 +29,7 @@ func _get_line_syntax_highlighting(line: int) -> Dictionary:
 	if span_colors.has(line):
 		for span in span_colors[line]:
 			color_map[span.start] = {"color": span.color}
-			color_map[span.end] = {"color": default_color}
+			color_map[span.end] = {"color": COLORS["white"]}
 	
 	# other rules
 	for rule in rules:
@@ -31,7 +41,7 @@ func _get_line_syntax_highlighting(line: int) -> Dictionary:
 			var end = result.get_end()
 			
 			color_map[start] = {"color": color}
-			color_map[end] = {"color": default_color}
+			color_map[end] = {"color": COLORS["white"]}
 		
 	return color_map
 
@@ -40,16 +50,16 @@ func add_keywords(words, color):
 	var escaped_words = []
 	
 	for word in words:
-		escaped_words.append("\\Q" + word + "\\E(?:\\s+|$)")
+		escaped_words.append("(?:^|\\s+)\\Q" + word + "\\E(?:\\s+|$)")
 	
 	var regex = RegEx.create_from_string("(" + "|".join(escaped_words) + ")")
 	
-	rules.append({"regex": regex, "color": color})
+	rules.append({"regex": regex, "color": COLORS[color]})
 	clear_highlighting_cache()
 
 # color a line
 func set_line_color(line, color):
-	line_colors[line] = color
+	line_colors[line] = COLORS[color]
 	clear_highlighting_cache()
 
 # color a span
@@ -57,5 +67,5 @@ func set_span_color(line, start, end, color):
 	if not span_colors.has(line):
 		span_colors[line] = []
 	
-	span_colors[line].append({"start": start, "end": end, "color": color})
+	span_colors[line].append({"start": start, "end": end, "color": COLORS[color]})
 	clear_highlighting_cache()
