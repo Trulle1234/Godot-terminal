@@ -7,11 +7,14 @@ Copyright (c) Trulle123 2026 - MIT License"
 var prompt
 
 var last_valid_text = ""
-var entered_commands = []
 var working_dir
 
 var commands: TerminalCommands
 var recognized_commands
+
+var entered_commands = []
+var last_previewd_command = ""
+var command_preview_i = 0
 
 var highlighter: TerminalHighlighter
 
@@ -41,7 +44,10 @@ func _gui_input(event: InputEvent) -> void:
 		var current_command = lines[-1].substr(prompt.length())
 		
 		commands.execute(current_command)
+		
 		entered_commands.append(current_command)
+		command_preview_i = entered_commands.size()
+		last_previewd_command = ""
 		
 		if current_command == "clear":
 			text += prompt
@@ -55,9 +61,35 @@ func _gui_input(event: InputEvent) -> void:
 		await get_tree().process_frame
 		set_caret_to_end()
 	
-	if event.is_action_pressed("up_arrow"):
+	elif event.is_action_pressed("up_arrow"):
+		var lines = text.split("\n")
+		var current_command = lines[-1].substr(prompt.length())
+		
 		if entered_commands.size() > 0:
-			text += entered_commands[entered_commands.size() - 1]
+			if not last_previewd_command.is_empty():
+				text = text.left(text.length() - current_command.length())
+				
+			command_preview_i = max(command_preview_i - 1, 0)
+			
+			last_previewd_command = entered_commands[command_preview_i]
+			text += last_previewd_command
+		
+	elif event.is_action_pressed("down_arrow"):
+		var lines = text.split("\n")
+		var current_command = lines[-1].substr(prompt.length())
+		
+		if entered_commands.size() > 0:
+			if not last_previewd_command.is_empty():
+				text = text.left(text.length() - current_command.length())
+				
+			command_preview_i += 1
+			
+			if command_preview_i >= entered_commands.size():
+				command_preview_i = entered_commands.size()
+				last_previewd_command = ""
+			else:
+				last_previewd_command = entered_commands[command_preview_i]
+				text += last_previewd_command
 
 # revert the text to last "saved state"
 func revert_text():
