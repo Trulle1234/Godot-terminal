@@ -81,22 +81,8 @@ func handle_output(args, function):
 			new_args.append(arg)
 
 	args = new_args
-		
-	if args.size() >= 2 and args[-2] == ">":
-		var output_path = solve_path(args[-1])
-		var command_args = args.slice(0, -2)
-		var func_res = function.call(command_args, options)
-		
-		var file = FileAccess.open(output_path, FileAccess.WRITE)
-		
-		if not file:
-			terminal.write_output("Cannot create file: " + args[-1], "red")
-			return
-			
-		if func_res:
-			file.store_string(output_to_text(func_res))
-			
-		file.close()
+	
+	if handle_redirect(args, options, function):
 		return
 	
 	var func_res = function.call(args, options)
@@ -114,6 +100,33 @@ func handle_output(args, function):
 	else:
 		if func_res:
 			terminal.write_output(func_res)
+			
+func handle_redirect(args, options, function):
+	if args.size() >= 2 and (args[-2] == ">" or args[-2] == ">>"):
+		var output_path = solve_path(args[-1])
+		var command_args = args.slice(0, -2)
+		var func_res = function.call(command_args, options)
+		var file
+		
+		if args[-2] == ">":
+			file = FileAccess.open(output_path, FileAccess.WRITE)
+		elif args[-2] == ">>":
+			if FileAccess.file_exists(output_path):
+				file = FileAccess.open(output_path, FileAccess.READ_WRITE)
+			else:
+				file = FileAccess.open(output_path, FileAccess.WRITE)
+		
+		if not file:
+			terminal.write_output("Cannot create file: " + args[-1], "red")
+			return true
+			
+		if func_res:
+			if args[-2] == ">>":
+				file.seek_end()
+			file.store_string(output_to_text(func_res))
+			
+		file.close()
+		return true
 
 func output_to_text(output):
 	if output is Array:
@@ -223,11 +236,7 @@ func ls(args, _options):
 	return all
 
 func echo(args, _options):
-	var text = ""
-	for arg in args:
-		text += arg + "\n"
-	
-	return text
+	return " ".join(args) + "\n"
 
 func touch(args, _options):
 	for arg in args:
@@ -290,7 +299,7 @@ func wc(args, options):
 			text_line += str(bytes) + " "
 		
 		if text_line == "":
-			text_line += str(lines) + " " + str(words) + " " + str(bytes) + " "
+			text_line = str(lines) + " " + str(words) + " " + str(bytes) + " "
 		
 		text += text_line + path.get_file() + "\n"
 		file.close()
@@ -362,8 +371,31 @@ func rm(args, _options):
 		else:
 			return ["rm: " + arg + ": No such file", "red"]
 
-func uname(_args, _options):
-	return OS.get_name()
+func uname(_args, options):
+	if "-a" in options:
+		var hostname = OS.get_environment("HOSTNAME")
+		if hostname.is_empty():
+			hostname = OS.get_environment("COMPUTERNAME")
+
+		return OS.get_name() + " " + OS.get_version_alias() + " " + OS.get_version() + " " + hostname + " " + Engine.get_architecture_name() + " "
+		
+	var text = ""
+	if "-s" in options or "-o" in options:
+		text += OS.get_name() + " "
+	if "-r" in options:
+		text += OS.get_version_alias() + " " + OS.get_version() + " "
+	if "-n" in options:
+		var hostname = OS.get_environment("HOSTNAME")
+		if hostname.is_empty():
+			hostname = OS.get_environment("COMPUTERNAME")
+		text += hostname + " "
+	if "-m" in options or "-p" in options or "-i" in options:
+		text += Engine.get_architecture_name() + " "
+	
+	if text == "":
+		text = OS.get_name()
+	
+	return text
 
 func whoami(_args, _options):
 	if OS.has_environment("USERNAME"):
@@ -395,4 +427,11 @@ func help(args, _options):
 			else:
 				text += command + "\n"
 	
+	return text
+
+func history(_args, _options):
+	var text = ""
+	for i in terminal.entered_commands.size():
+		text += str(i + 1) + " " + terminal.entered_commands[i] + "\n"
+		
 	return text
