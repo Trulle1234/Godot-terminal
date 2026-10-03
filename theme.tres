@@ -1,0 +1,20 @@
+[gd_resource type="Theme" format=3 uid="uid://cnhubinj5nmom"]
+
+[ext_resource type="FontFile" uid="uid://b8pricvk3v3vx" path="res://JetBrainsMono-Bold.ttf" id="1_e1x85"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_sxuvd"]
+content_margin_left = 8.0
+content_margin_top = 8.0
+content_margin_right = 8.0
+content_margin_bottom = 8.0
+bg_color = Color(0, 0, 0, 1)
+
+[resource]
+CodeEdit/colors/caret_background_color = Color(0.7764706, 0.7764706, 0.7764706, 1)
+CodeEdit/colors/caret_color = Color(0.7764706, 0.7764706, 0.7764706, 1)
+CodeEdit/colors/font_color = Color(0.7764706, 0.7764706, 0.7764706, 1)
+CodeEdit/constants/caret_width = 10
+CodeEdit/constants/line_spacing = 0
+CodeEdit/constants/outline_size = 0
+CodeEdit/fonts/font = ExtResource("1_e1x85")
+CodeEdit/styles/normal = SubResource("StyleBoxFlat_sxuvd")
