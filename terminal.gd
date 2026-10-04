@@ -1,7 +1,7 @@
 class_name Terminal
 extends CodeEdit
 
-var startup_text = "Godot Terminal [Version 0.0]
+var startup_text = "Godot Terminal [Version 1.0]
 Copyright (c) Trulle123 2026 - MIT License"
 
 var prompt
@@ -92,6 +92,12 @@ func _gui_input(event: InputEvent) -> void:
 			else:
 				last_previewd_command = entered_commands[command_preview_i]
 				text += last_previewd_command
+	
+	elif event.is_action_pressed("zoom_in"):
+		theme.set_font_size("font_size", "CodeEdit", theme.get_font_size("font_size", "CodeEdit") + 1)
+		
+	elif event.is_action_pressed("zoom_out"):
+		theme.set_font_size("font_size", "CodeEdit", theme.get_font_size("font_size", "CodeEdit") - 1)
 
 # revert the text to last "saved state"
 func revert_text():

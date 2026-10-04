@@ -1,7 +1,16 @@
 class_name TerminalCommands
 extends RefCounted
 
-const COMMAND_BLACKLIST = ["_init", "execute", "get_command_names", "parse_line", "handle_output", "solve_path", "output_to_text"]
+const COMMAND_BLACKLIST = [
+	"_init", 
+	"execute", 
+	"get_command_names", 
+	"parse_line",
+	"handle_output", 
+	"solve_path", 
+	"output_to_text",
+	"remove_recursive"
+]
 
 const COMMAND_INFO = {
 	"pwd": "Print the current working directory",
@@ -172,6 +181,23 @@ func solve_path(path):
 	
 	return path.simplify_path().replace("\\", "/")
 
+func remove_recursive(path):
+	for file in DirAccess.get_files_at(path):
+		var file_path = path.path_join(file)
+		var err = DirAccess.remove_absolute(file_path)
+		
+		if err != OK:
+			return err
+	
+	for dir in DirAccess.get_directories_at(path):
+		var dir_path = path.path_join(dir)
+		var err = remove_recursive(dir_path)
+		
+		if err != OK:
+			return err
+	
+	return DirAccess.remove_absolute(path)
+
 func pwd(_args, _options):
 	return terminal.working_dir
 	
@@ -213,7 +239,7 @@ func rmdir(args, _options):
 		else:
 			return ["rmdir: " + arg + ": No such directory", "red"]
 		
-func ls(args, _options):
+func ls(args, options):
 	if args.is_empty():
 		args.append(terminal.working_dir)
 	
@@ -231,9 +257,11 @@ func ls(args, _options):
 		var all_here = []
 		
 		for dir in dirs:
-			all_here.append([dir + "/", "blue"])
+			if not dir.begins_with(".") or "-a" in options:
+				all_here.append([dir + "/", "blue"])
 		for file in files:
-			all_here.append([file, "white"])
+			if not file.begins_with(".") or "-a" in options:
+				all_here.append([file, "white"])
 		
 		all_here.sort_custom(func(a, b): return a[0] < b[0])
 		
@@ -408,17 +436,23 @@ func mv(args, _options):
 	if err != OK:
 		return ["mv: cannot move '" + args[0] + "'", "red"]
 
-func rm(args, _options):
+func rm(args, options):
 	for arg in args:
-		var path = solve_path(arg)
+		var path = solve_path(arg).trim_suffix("/")
 		
 		if FileAccess.file_exists(path):
 			var err = DirAccess.remove_absolute(path)
+			if err != OK:
+				return ["rm: failed to remove '" + arg + "'", "red"]
+		elif DirAccess.dir_exists_absolute(path):
+			if "-r" not in options:
+				return ["rm: cannot remove '" + arg + "': Is a directory", "red"]
 			
+			var err = remove_recursive(path)
 			if err != OK:
 				return ["rm: failed to remove '" + arg + "'", "red"]
 		else:
-			return ["rm: " + arg + ": No such file", "red"]
+			return ["rm: cannot remove '" + arg + "': No such file or directory", "red"]
 
 func uname(_args, options):
 	if "-a" in options:
