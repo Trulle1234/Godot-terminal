@@ -31,9 +31,9 @@ func _ready() -> void:
 	text = startup_text + "\n\n" + prompt
 	last_valid_text = text
 	
-	# highlighting
+	# highlighting	
 	highlighter.set_span_color(get_line_count() - 1, 0, prompt.length(), "green")
-	highlighter.add_keywords(recognized_commands, "yellow")
+	highlighter.add_command_color(recognized_commands, "yellow")
 
 # handle enter presses
 func _gui_input(event: InputEvent) -> void:
@@ -59,7 +59,8 @@ func _gui_input(event: InputEvent) -> void:
 		
 		last_valid_text = text
 		
-		await get_tree().process_frame
+		if get_tree():
+			await get_tree().process_frame
 		set_caret_to_end()
 	
 	elif event.is_action_pressed("up_arrow"):

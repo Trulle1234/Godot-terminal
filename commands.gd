@@ -6,41 +6,49 @@ const COMMAND_BLACKLIST = ["_init", "execute", "get_command_names", "parse_line"
 const COMMAND_INFO = {
 	"pwd": "Print the current working directory",
 	"cd": "Change the current working directory",
-	"mkdir": "Create a directory",
-	"rmdir": "Remove an empty directory",
+	"mkdir": "Create directory",
+	"rmdir": "Remove empty directory",
 	"ls": "List directory contents",
-	"echo": "Print text",
-	"touch": "Create an empty file",
-	"cat": "Print file contents",
-	"cp": "Copy a file",
-	"mv": "Move or rename a file",
-	"rm": "Remove a file",
+	"echo": "Output text",
+	"touch": "Create empty file",
+	"cat": "Print and concatenate file contents",
+	"head": "Print first line of file",
+	"tail": "Print last line of file",
+	"wc": "Count lines, words and bytes",
+	"sort": "Sort lines of text file",
+	"cp": "Copy file",
+	"mv": "Move or rename file",
+	"rm": "Remove file",
 	"uname": "Print system information",
 	"whoami": "Print the current user",
 	"clear": "Clear the terminal",
-	"help": "Show available commands"
+	"help": "Show command information",
+	"history": "Show command history",
+	"reset": "Resets the terminal"
 }
 
 var terminal: Terminal
-var command_names
+var all_command_names
 
 func _init(terminal_ref) -> void:
 	terminal = terminal_ref
-	command_names = get_command_names()
+	all_command_names = get_command_names()
 
 func execute(command_line) -> void:
-	var parts = parse_line(command_line)
+	var lines = command_line.split(";")
 	
-	if parts.is_empty():
-		return
-	
-	var command = parts[0]
-	var args = parts.slice(1)
-	
-	if command in get_command_names():
-		handle_output(args, Callable(self, command))
-	else:
-		terminal.write_output(command + ": not found", "red")
+	for line in lines:
+		var parts = parse_line(line)
+		if parts.is_empty():
+			return
+		
+		var command = parts[0]
+		var args = parts.slice(1)
+		
+		if command in get_command_names():
+			handle_output(args, Callable(self, command))
+		else:
+			terminal.write_output(command + ": not found", "red")
 
 func get_command_names():
 	var command_names = []
@@ -123,7 +131,8 @@ func handle_redirect(args, options, function):
 		if func_res:
 			if args[-2] == ">>":
 				file.seek_end()
-			file.store_string(output_to_text(func_res))
+		
+		file.store_string(output_to_text(func_res))
 			
 		file.close()
 		return true
@@ -228,7 +237,7 @@ func ls(args, _options):
 		
 		all_here.sort_custom(func(a, b): return a[0] < b[0])
 		
-		all.append([path.get_file() + ":", "cyan"])
+		all.append([path.get_file() + "/:", "cyan"])
 		all.append_array(all_here)
 		if not arg == args[args.size() - 1]:
 			all.append([" ", "white"])
@@ -270,6 +279,46 @@ func cat(args, options):
 		text = ""
 		for i in text_lines.size():
 			text += str(i + 1) + " " + text_lines[i] + "\n"
+			
+	return text
+
+func head(args, _options):
+	var text = ""
+	for arg in args:
+		var path = solve_path(arg)
+		
+		var file = FileAccess.open(path, FileAccess.READ)
+		
+		if not file:
+			return ["head: " + arg + ": No such file", "red"]
+		
+		if args.size() > 1:
+			text += "==> " + path.get_file() + " <==\n" + file.get_line() + "\n"
+			if not arg == args[args.size() - 1]:
+				text += " \n"
+		else:
+			text = file.get_line()
+		file.close()
+			
+	return text
+
+func tail(args, _options):
+	var text = ""
+	for arg in args:
+		var path = solve_path(arg)
+		
+		var file = FileAccess.open(path, FileAccess.READ)
+		
+		if not file:
+			return ["head: " + arg + ": No such file", "red"]
+		
+		if args.size() > 1:
+			text += "==> " + path.get_file() + " <==\n" + file.get_as_text().split("\n", false)[-1]  + "\n"
+			if not arg == args[args.size() - 1]:
+				text += " \n"
+		else:
+			text = file.get_as_text().split("\n", false)[-1]
+		file.close()
 			
 	return text
 
@@ -435,3 +484,7 @@ func history(_args, _options):
 		text += str(i + 1) + " " + terminal.entered_commands[i] + "\n"
 		
 	return text
+
+func reset(_args, _options):
+	if terminal.is_inside_tree():
+		terminal.get_tree().call_deferred("reload_current_scene")

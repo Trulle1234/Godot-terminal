@@ -33,28 +33,38 @@ func _get_line_syntax_highlighting(line: int) -> Dictionary:
 	
 	# other rules
 	for rule in rules:
+		var command_text = text
+		var offset = 0
+		
+		var prompt_end = text.find("$ ")
+		
+		if prompt_end != -1:
+			offset = prompt_end + 2
+			command_text = text.substr(offset)
+		
 		var regex = rule.regex
 		var color = rule.color
 		
-		for result in regex.search_all(text):
-			var start = result.get_start()
-			var end = result.get_end()
+		for result in regex.search_all(command_text):
+			var start = result.get_start(2) + offset
+			var end = result.get_end(2) + offset
 			
 			color_map[start] = {"color": color}
 			color_map[end] = {"color": COLORS["white"]}
 		
 	return color_map
 
-# add keyword with color
-func add_keywords(words, color):
+# add command with color
+func add_command_color(words, color):
 	var escaped_words = []
 	
 	for word in words:
-		escaped_words.append("(?:^|\\s+)\\Q" + word + "\\E(?:\\s+|$)")
+		escaped_words.append("\\Q" + word + "\\E")
 	
-	var regex = RegEx.create_from_string("(" + "|".join(escaped_words) + ")")
+	var regex = RegEx.create_from_string("(^\\s*|;\\s*)(" + "|".join(escaped_words) + ")(?=\\s|$)")
 	
 	rules.append({"regex": regex, "color": COLORS[color]})
+	
 	clear_highlighting_cache()
 
 # color a line
