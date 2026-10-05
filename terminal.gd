@@ -8,6 +8,7 @@ var prompt
 
 var last_valid_text = ""
 var working_dir
+var last_working_dir
 
 var commands: TerminalCommands
 var recognized_commands
@@ -25,6 +26,7 @@ func _ready() -> void:
 	
 	recognized_commands = commands.get_command_names()
 	working_dir = get_home_dir()
+	last_working_dir = working_dir
 	
 	prompt = working_dir + "$ "
 	
@@ -99,9 +101,6 @@ func _gui_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("zoom_out"):
 		theme.set_font_size("font_size", "CodeEdit", theme.get_font_size("font_size", "CodeEdit") - 1)
 
-func _process(_delta: float) -> void:
-	print(Engine.get_frames_per_second())
-
 # revert the text to last "saved state"
 func revert_text():
 	text_changed.disconnect(_on_text_changed)
@@ -166,6 +165,7 @@ func write_output(output, color="white"):
 
 # sets the current working dir
 func set_working_dir(path):
+	last_working_dir = working_dir
 	working_dir = path
 	prompt = working_dir + "$ "
 	

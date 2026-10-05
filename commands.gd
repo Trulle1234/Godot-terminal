@@ -2,14 +2,16 @@ class_name TerminalCommands
 extends RefCounted
 
 const COMMAND_BLACKLIST = [
-	"_init", 
-	"execute", 
-	"get_command_names", 
+	"_init",
+	"execute",
+	"get_command_names",
 	"parse_line",
-	"handle_output", 
-	"solve_path", 
+	"handle_output",
+	"solve_path",
+	"handle_redirect",
 	"output_to_text",
-	"remove_recursive"
+	"remove_recursive",
+	"get_wc_text"
 ]
 
 const COMMAND_INFO = {
@@ -183,6 +185,11 @@ func solve_path(path):
 	elif path.begins_with("~/"):
 		return (terminal.get_home_dir() + path.substr(1)).simplify_path()
 	
+	if path == "-":
+		return terminal.last_working_dir
+	if path == "-/":
+		return (terminal.last_working_dir + path.substr(1)).simplify_path()
+	
 	if path == "/" and OS.has_feature("windows"):
 		var drive = terminal.working_dir.get_slice(":", 0)
 		return drive + ":/"
@@ -208,6 +215,26 @@ func remove_recursive(path):
 			return err
 	
 	return DirAccess.remove_absolute(path)
+
+func get_wc_text(text_content, name, options):
+	var lines = text_content.split("\n", false).size()
+	var word_regex = RegEx.create_from_string(r"\S+")
+	var words = word_regex.search_all(text_content).size()
+	var bytes = text_content.to_utf8_buffer().size()
+	
+	var text_line = ""
+	
+	if "-l" in options:
+		text_line += str(lines) + " "
+	if "-w" in options:
+		text_line += str(words) + " "
+	if "-c" in options:
+		text_line += str(bytes) + " "
+	
+	if text_line == "":
+		text_line = str(lines) + " " + str(words) + " " + str(bytes) + " "
+	
+	return text_line + name + "\n"
 
 func pwd(_args, _options, _pipe_input):
 	return terminal.working_dir
@@ -308,7 +335,6 @@ func cat(args, options, pipe_input):
 		
 	for arg in args:
 		var path = solve_path(arg)
-		
 		var file = FileAccess.open(path, FileAccess.READ)
 		
 		if not file:
@@ -336,7 +362,6 @@ func head(args, _options, pipe_input):
 		
 	for arg in args:
 		var path = solve_path(arg)
-		
 		var file = FileAccess.open(path, FileAccess.READ)
 		
 		if not file:
@@ -363,7 +388,6 @@ func tail(args, _options, pipe_input):
 			
 	for arg in args:
 		var path = solve_path(arg)
-		
 		var file = FileAccess.open(path, FileAccess.READ)
 		
 		if not file:
@@ -379,36 +403,20 @@ func tail(args, _options, pipe_input):
 			
 	return text
 
-func wc(args, options, _pipe_input):
-	# to add: piped input
+func wc(args, options, pipe_input):
 	var text = ""
+	
+	if pipe_input:
+		text += get_wc_text(pipe_input, "piped", options)
+	
 	for arg in args:
 		var path = solve_path(arg)
-		
 		var file = FileAccess.open(path, FileAccess.READ)
 		
 		if not file:
 			return ["wc: " + arg + ": No such file", "red"]
 		
-		var text_content = file.get_as_text()
-		var lines = text_content.split("\n", false).size()
-		var word_regex = RegEx.create_from_string(r"\S+")
-		var words = word_regex.search_all(text_content).size()
-		var bytes = text_content.to_utf8_buffer().size()
-		
-		var text_line = ""
-		
-		if "-l" in options:
-			text_line += str(lines) + " "
-		if "-w" in options:
-			text_line += str(words) + " "
-		if "-c" in options:
-			text_line += str(bytes) + " "
-		
-		if text_line == "":
-			text_line = str(lines) + " " + str(words) + " " + str(bytes) + " "
-		
-		text += text_line + path.get_file() + "\n"
+		text += get_wc_text(file, path.get_file(), options)
 		file.close()
 		
 	return text
@@ -422,7 +430,6 @@ func sort(args, _options, pipe_input):
 	
 	for arg in args:
 		var path = solve_path(arg)
-		
 		var file = FileAccess.open(path, FileAccess.READ)
 		
 		if not file:
@@ -438,6 +445,39 @@ func sort(args, _options, pipe_input):
 	for line in lines:
 		text += line + "\n"
 	
+	return text
+
+func grep(args, _options, pipe_input):
+	var pattern = args[0]
+	args.remove_at(0)
+	var text = ""
+	
+	if pipe_input:
+		if args.size() > 1:
+			text += "==> " + "piped" + " <==\n"
+		for line in pipe_input.split("\n", false):
+			if line.contains(pattern):
+				text += line + "\n"
+		if args.size() > 1:
+			text += " \n"
+	
+	for arg in args:
+		var path = solve_path(arg)
+		var file = FileAccess.open(path, FileAccess.READ)
+		
+		if not file:
+			return ["grep: " + arg + ": No such file", "red"]
+		
+		if args.size() > 1:
+			text += "==> " + path.get_file() + " <==\n"
+		
+		for line in file.get_as_text().split("\n", false):
+			if line.contains(pattern):
+				text += line + "\n"
+		
+		if args.size() > 1 and not arg == args[args.size() - 1]:
+			text += " \n"
+		
 	return text
 
 func cp(args, _options, _pipe_input):
