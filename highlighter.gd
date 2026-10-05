@@ -61,7 +61,7 @@ func add_command_color(words, color):
 	for word in words:
 		escaped_words.append("\\Q" + word + "\\E")
 	
-	var regex = RegEx.create_from_string("(^\\s*|;\\s*)(" + "|".join(escaped_words) + ")(?=\\s|$)")
+	var regex = RegEx.create_from_string("(^\\s*|;\\s*|\\|\\s*)(" + "|".join(escaped_words) + ")(?=\\s|$|;|\\|)")
 	
 	rules.append({"regex": regex, "color": COLORS[color]})
 	

@@ -47,17 +47,26 @@ func execute(command_line) -> void:
 	var lines = command_line.split(";")
 	
 	for line in lines:
-		var parts = parse_line(line)
-		if parts.is_empty():
-			return
+		var pipeline = line.split("|")
+		var pipe_input = null
 		
-		var command = parts[0]
-		var args = parts.slice(1)
-		
-		if command in get_command_names():
-			handle_output(args, Callable(self, command))
-		else:
-			terminal.write_output(command + ": not found", "red")
+		for i in range(pipeline.size()):
+			var parts = parse_line(pipeline[i].strip_edges())
+			if parts.is_empty():
+				continue
+			
+			var command = parts[0]
+			var args = parts.slice(1)
+			
+			if command not in get_command_names():
+				terminal.write_output(command + ": not found", "red")
+				break
+			
+			var is_last = i == pipeline.size() - 1
+			if is_last:
+				handle_output(args, Callable(self, command), pipe_input)
+			else:
+				pipe_input = handle_output(args, Callable(self, command), pipe_input, true)
 
 func get_command_names():
 	var command_names = []
@@ -84,7 +93,7 @@ func parse_line(line):
 	
 	return parts
 
-func handle_output(args, function):
+func handle_output(args, function, pipe_input=null, pipe=false):
 	var options = []
 	var new_args = []
 	var parsing_options = true
@@ -99,30 +108,29 @@ func handle_output(args, function):
 
 	args = new_args
 	
-	if handle_redirect(args, options, function):
+	if handle_redirect(args, options, function, pipe_input):
 		return
+		
+	var func_res = function.call(args, options, pipe_input)
 	
-	var func_res = function.call(args, options)
+	if pipe:
+		return output_to_text(func_res)
 	
 	if func_res is Array:
-		if func_res.is_empty():
-			return
-		
 		if func_res[0] is Array:
 			for item in func_res:
 				if item is Array and item.size() >= 2:
 					terminal.write_output(item[0], item[1])
 		else:
 			terminal.write_output(func_res[0], func_res[1])
-	else:
-		if func_res:
-			terminal.write_output(func_res)
+	elif func_res:
+		terminal.write_output(func_res)
 			
-func handle_redirect(args, options, function):
+func handle_redirect(args, options, function, pipe_input):
 	if args.size() >= 2 and (args[-2] == ">" or args[-2] == ">>"):
 		var output_path = solve_path(args[-1])
 		var command_args = args.slice(0, -2)
-		var func_res = function.call(command_args, options)
+		var func_res = function.call(command_args, options, pipe_input)
 		var file
 		
 		if args[-2] == ">":
@@ -147,6 +155,9 @@ func handle_redirect(args, options, function):
 		return true
 
 func output_to_text(output):
+	if output == null:
+		return ""
+	
 	if output is Array:
 		if output.is_empty():
 			return ""
@@ -198,10 +209,10 @@ func remove_recursive(path):
 	
 	return DirAccess.remove_absolute(path)
 
-func pwd(_args, _options):
+func pwd(_args, _options, _pipe_input):
 	return terminal.working_dir
 	
-func cd(args, _options):
+func cd(args, _options, _pipe_input):
 	if args.is_empty():
 		terminal.set_working_dir(terminal.get_home_dir())
 		return
@@ -214,7 +225,7 @@ func cd(args, _options):
 	
 	return ["cd: " + args[0] + ": No such directory", "red"]
 
-func mkdir(args, options):
+func mkdir(args, options, _pipe_input):
 	for arg in args:
 		var path = solve_path(arg)
 		
@@ -227,7 +238,7 @@ func mkdir(args, options):
 		if err != OK:
 			return ["mkdir: cannot create directory '" + arg + "'", "red"]
 
-func rmdir(args, _options):
+func rmdir(args, _options, _pipe_input):
 	for arg in args:
 		var path = solve_path(arg)
 		
@@ -239,7 +250,7 @@ func rmdir(args, _options):
 		else:
 			return ["rmdir: " + arg + ": No such directory", "red"]
 		
-func ls(args, options):
+func ls(args, options, _pipe_input):
 	if args.is_empty():
 		args.append(terminal.working_dir)
 	
@@ -272,10 +283,10 @@ func ls(args, options):
 	
 	return all
 
-func echo(args, _options):
+func echo(args, _options, _pipe_input):
 	return " ".join(args) + "\n"
 
-func touch(args, _options):
+func touch(args, _options, _pipe_input):
 	for arg in args:
 		var path = solve_path(arg)
 		
@@ -289,8 +300,12 @@ func touch(args, _options):
 		
 		file.close()
 
-func cat(args, options):
+func cat(args, options, pipe_input):
 	var text = ""
+	
+	if pipe_input:
+		text += pipe_input
+		
 	for arg in args:
 		var path = solve_path(arg)
 		
@@ -310,8 +325,15 @@ func cat(args, options):
 			
 	return text
 
-func head(args, _options):
+func head(args, _options, pipe_input):
 	var text = ""
+	
+	if pipe_input:
+		if args.size() > 0:
+			text += "==> piped <==\n" + pipe_input.get_line().split("\n", false)[0] + "\n"
+		else:
+			text += pipe_input.get_line().split("\n", false)[0] + " \n \n"
+		
 	for arg in args:
 		var path = solve_path(arg)
 		
@@ -330,15 +352,22 @@ func head(args, _options):
 			
 	return text
 
-func tail(args, _options):
+func tail(args, _options, pipe_input):
 	var text = ""
+	
+	if pipe_input:
+		if args.size() > 0:
+			text += "==> piped <==\n" + pipe_input.get_line().split("\n", false)[-1] + "\n"
+		else:
+			text += pipe_input.get_line().split("\n", false)[-1] + " \n \n"
+			
 	for arg in args:
 		var path = solve_path(arg)
 		
 		var file = FileAccess.open(path, FileAccess.READ)
 		
 		if not file:
-			return ["head: " + arg + ": No such file", "red"]
+			return ["tail: " + arg + ": No such file", "red"]
 		
 		if args.size() > 1:
 			text += "==> " + path.get_file() + " <==\n" + file.get_as_text().split("\n", false)[-1]  + "\n"
@@ -350,7 +379,8 @@ func tail(args, _options):
 			
 	return text
 
-func wc(args, options):
+func wc(args, options, _pipe_input):
+	# to add: piped input
 	var text = ""
 	for arg in args:
 		var path = solve_path(arg)
@@ -383,8 +413,12 @@ func wc(args, options):
 		
 	return text
 
-func sort(args, _options):
+func sort(args, _options, pipe_input):
 	var lines = []
+	
+	if pipe_input:
+		for line in pipe_input.split("\n", false):
+			lines.append(line)
 	
 	for arg in args:
 		var path = solve_path(arg)
@@ -406,7 +440,7 @@ func sort(args, _options):
 	
 	return text
 
-func cp(args, _options):
+func cp(args, _options, _pipe_input):
 	if args.size() < 2:
 		return ["cp: missing target file or directory", "red"]
 	
@@ -421,7 +455,7 @@ func cp(args, _options):
 	if err != OK:
 		return ["cp: " + args[0] + ": No such file or directory", "red"]
 		
-func mv(args, _options):
+func mv(args, _options, _pipe_input):
 	if args.size() < 2:
 		return ["mv: missing target file or directory", "red"]
 	
@@ -436,7 +470,7 @@ func mv(args, _options):
 	if err != OK:
 		return ["mv: cannot move '" + args[0] + "'", "red"]
 
-func rm(args, options):
+func rm(args, options, _pipe_input):
 	for arg in args:
 		var path = solve_path(arg).trim_suffix("/")
 		
@@ -454,7 +488,7 @@ func rm(args, options):
 		else:
 			return ["rm: cannot remove '" + arg + "': No such file or directory", "red"]
 
-func uname(_args, options):
+func uname(_args, options, _pipe_input):
 	if "-a" in options:
 		var hostname = OS.get_environment("HOSTNAME")
 		if hostname.is_empty():
@@ -480,16 +514,16 @@ func uname(_args, options):
 	
 	return text
 
-func whoami(_args, _options):
+func whoami(_args, _options, _pipe_input):
 	if OS.has_environment("USERNAME"):
 		return OS.get_environment("USERNAME")
 	elif OS.has_environment("USER"):
 		return OS.get_environment("USER")
 
-func clear(_args, _options):
+func clear(_args, _options, _pipe_input):
 	terminal.clear_and_reset_colors()
 	
-func help(args, _options):
+func help(args, _options, _pipe_input):
 	var text = ""
 	
 	if args:
@@ -512,13 +546,13 @@ func help(args, _options):
 	
 	return text
 
-func history(_args, _options):
+func history(_args, _options, _pipe_input):
 	var text = ""
 	for i in terminal.entered_commands.size():
 		text += str(i + 1) + " " + terminal.entered_commands[i] + "\n"
 		
 	return text
 
-func reset(_args, _options):
+func reset(_args, _options, _pipe_input):
 	if terminal.is_inside_tree():
 		terminal.get_tree().call_deferred("reload_current_scene")

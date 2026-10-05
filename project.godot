@@ -13,6 +13,8 @@ config_version=5
 config/name="Godot Termninal"
 run/main_scene="uid://cku33nnvklh1c"
 config/features=PackedStringArray("4.7", "Forward Plus")
+run/low_processor_mode=true
+run/low_processor_mode_sleep_usec=16000
 config/icon="res://icon.svg"
 
 [display]
@@ -60,3 +62,4 @@ zoom_out={
 [rendering]
 
 rendering_device/driver.windows="d3d12"
+renderer/rendering_method="gl_compatibility"

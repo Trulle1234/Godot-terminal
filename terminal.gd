@@ -99,6 +99,9 @@ func _gui_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("zoom_out"):
 		theme.set_font_size("font_size", "CodeEdit", theme.get_font_size("font_size", "CodeEdit") - 1)
 
+func _process(_delta: float) -> void:
+	print(Engine.get_frames_per_second())
+
 # revert the text to last "saved state"
 func revert_text():
 	text_changed.disconnect(_on_text_changed)
