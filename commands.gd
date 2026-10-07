@@ -11,7 +11,8 @@ const COMMAND_BLACKLIST = [
 	"handle_redirect",
 	"output_to_text",
 	"remove_recursive",
-	"get_wc_text"
+	"get_wc_text",
+	"get_grep_text"
 ]
 
 const COMMAND_INFO = {
@@ -46,6 +47,9 @@ func _init(terminal_ref) -> void:
 	all_command_names = get_command_names()
 
 func execute(command_line) -> void:
+	var history_file = FileAccess.open("user://entered_commands.save", FileAccess.WRITE)
+	history_file.store_var(terminal.entered_commands)
+	
 	var lines = command_line.split(";")
 	
 	for line in lines:
@@ -153,7 +157,6 @@ func handle_redirect(args, options, function, pipe_input):
 		
 		file.store_string(output_to_text(func_res))
 			
-		file.close()
 		return true
 
 func output_to_text(output):
@@ -236,6 +239,32 @@ func get_wc_text(text_content, name, options):
 	
 	return text_line + name + "\n"
 
+func get_grep_text(text, pattern, options):
+	var output = ""
+	var count = 0
+	var search_pattern = pattern.to_lower() if "-i" in options else pattern
+	
+	for line in text.split("\n", false):
+		var search_line
+		if "-i" in options:
+			search_line = line.to_lower()
+		else:
+			search_line = line
+		
+		if search_line.contains(search_pattern) and "-v" not in options:
+			count += 1
+			if "-c" not in options:
+				output += line + "\n"
+		elif "-v" in options and not search_line.contains(search_pattern):
+			count += 1
+			if "-c" not in options:
+				output += line + "\n"
+	
+	if "-c" in options:
+		output += str(count) + "\n"
+	
+	return output
+	
 func pwd(_args, _options, _pipe_input):
 	return terminal.working_dir
 	
@@ -325,8 +354,6 @@ func touch(args, _options, _pipe_input):
 		if not file:
 			return ["touch: cannot touch '" + arg + "'", "red"]
 		
-		file.close()
-
 func cat(args, options, pipe_input):
 	var text = ""
 	
@@ -341,7 +368,6 @@ func cat(args, options, pipe_input):
 			return ["cat: " + arg + ": No such file", "red"]
 		
 		text += file.get_as_text()
-		file.close()
 	
 	if "-n" in options:
 		var text_lines = text.split("\n")
@@ -356,9 +382,9 @@ func head(args, _options, pipe_input):
 	
 	if pipe_input:
 		if args.size() > 0:
-			text += "==> piped <==\n" + pipe_input.get_line().split("\n", false)[0] + "\n"
+			text += "==> piped <==\n" + pipe_input.split("\n", false)[0] + "\n"
 		else:
-			text += pipe_input.get_line().split("\n", false)[0] + " \n \n"
+			text += pipe_input.split("\n", false)[0] + " \n \n"
 		
 	for arg in args:
 		var path = solve_path(arg)
@@ -373,7 +399,6 @@ func head(args, _options, pipe_input):
 				text += " \n"
 		else:
 			text = file.get_line()
-		file.close()
 			
 	return text
 
@@ -399,7 +424,6 @@ func tail(args, _options, pipe_input):
 				text += " \n"
 		else:
 			text = file.get_as_text().split("\n", false)[-1]
-		file.close()
 			
 	return text
 
@@ -416,8 +440,7 @@ func wc(args, options, pipe_input):
 		if not file:
 			return ["wc: " + arg + ": No such file", "red"]
 		
-		text += get_wc_text(file, path.get_file(), options)
-		file.close()
+		text += get_wc_text(file.get_as_text(), path.get_file(), options)
 		
 	return text
 
@@ -437,7 +460,6 @@ func sort(args, _options, pipe_input):
 				
 		for line in file.get_as_text().split("\n", false):
 			lines.append(line)
-		file.close()
 	
 	lines.sort()
 	
@@ -447,36 +469,32 @@ func sort(args, _options, pipe_input):
 	
 	return text
 
-func grep(args, _options, pipe_input):
+func grep(args, options, pipe_input):
+	if not args:
+		return ["grep: missing pattern", "red"]
+	
 	var pattern = args[0]
 	args.remove_at(0)
 	var text = ""
 	
 	if pipe_input:
+		text += get_grep_text(pipe_input, pattern, options)
 		if args.size() > 1:
-			text += "==> " + "piped" + " <==\n"
-		for line in pipe_input.split("\n", false):
-			if line.contains(pattern):
-				text += line + "\n"
-		if args.size() > 1:
-			text += " \n"
+			text += "\n"
 	
 	for arg in args:
 		var path = solve_path(arg)
 		var file = FileAccess.open(path, FileAccess.READ)
-		
 		if not file:
 			return ["grep: " + arg + ": No such file", "red"]
 		
 		if args.size() > 1:
 			text += "==> " + path.get_file() + " <==\n"
 		
-		for line in file.get_as_text().split("\n", false):
-			if line.contains(pattern):
-				text += line + "\n"
+		text += get_grep_text(file.get_as_text(), pattern, options)
 		
-		if args.size() > 1 and not arg == args[args.size() - 1]:
-			text += " \n"
+		if args.size() > 1 and arg != args[-1]:
+			text += "\n"
 		
 	return text
 

@@ -28,12 +28,28 @@ func _ready() -> void:
 	working_dir = get_home_dir()
 	last_working_dir = working_dir
 	
+	if FileAccess.file_exists("user://entered_commands.save"):
+		var history_file = FileAccess.open("user://entered_commands.save", FileAccess.READ)
+		entered_commands = history_file.get_var()
+			
+		if history_file.get_error() != OK or not entered_commands is Array:
+			entered_commands = []
+		
+		if entered_commands is Array and entered_commands.size() > 500:
+			entered_commands = entered_commands.slice(-500)
+			
+	else:
+		var history_file = FileAccess.open("user://entered_commands.save", FileAccess.WRITE)
+		history_file.store_var(entered_commands)
+	
+	command_preview_i = entered_commands.size()
+	
 	prompt = working_dir + "$ "
 	
 	text = startup_text + "\n\n" + prompt
 	last_valid_text = text
 	
-	# highlighting	
+	# highlighting
 	highlighter.set_span_color(get_line_count() - 1, 0, prompt.length(), "green")
 	highlighter.add_command_color(recognized_commands, "yellow")
 
@@ -45,12 +61,12 @@ func _gui_input(event: InputEvent) -> void:
 		var lines = text.split("\n")
 		var current_command = lines[-1].substr(prompt.length())
 		
-		commands.execute(current_command)
-		
 		if current_command.strip_edges() != "":
 			entered_commands.append(current_command)
 			command_preview_i = entered_commands.size()
 			last_previewd_command = ""
+		
+		commands.execute(current_command)
 		
 		if current_command == "clear":
 			text += prompt
