@@ -70,9 +70,9 @@ func execute(command_line) -> void:
 			
 			var is_last = i == pipeline.size() - 1
 			if is_last:
-				handle_output(args, Callable(self, command), pipe_input)
+				await handle_output(args, Callable(self, command), pipe_input)
 			else:
-				pipe_input = handle_output(args, Callable(self, command), pipe_input, true)
+				pipe_input =  await handle_output(args, Callable(self, command), pipe_input, true)
 
 func get_command_names():
 	var command_names = []
@@ -89,7 +89,7 @@ func parse_line(line):
 	var regex = RegEx.create_from_string(r'"([^"]*)"|(\S+)')
 	var parts = []
 	
-	for match in regex.search_all(line.strip_edges()): 
+	for match in regex.search_all(line.strip_edges()):
 		var quoted = match.get_string(1)
 		
 		if quoted != "":
@@ -117,7 +117,7 @@ func handle_output(args, function, pipe_input=null, pipe=false):
 	if handle_redirect(args, options, function, pipe_input):
 		return
 		
-	var func_res = function.call(args, options, pipe_input)
+	var func_res = await function.call(args, options, pipe_input)
 	
 	if pipe:
 		return output_to_text(func_res)
@@ -264,7 +264,7 @@ func get_grep_text(text, pattern, options):
 		output += str(count) + "\n"
 	
 	return output
-	
+
 func pwd(_args, _options, _pipe_input):
 	return terminal.working_dir
 	
@@ -545,6 +545,36 @@ func rm(args, options, _pipe_input):
 				return ["rm: failed to remove '" + arg + "'", "red"]
 		else:
 			return ["rm: cannot remove '" + arg + "': No such file or directory", "red"]
+
+func curl(args, _options, _pipe_input):
+	if not args:
+		return ["curl: no URL specified", "red"]
+	
+	var url = args[0]
+	
+	if not url.begins_with("http://") and not url.begins_with("https://"):
+		url = "https://" + url
+	
+	var http = HTTPRequest.new()
+	http.timeout = 15
+	terminal.add_child(http)
+	
+	var error = http.request(url)
+	if error != OK:
+		http.queue_free()
+		return ["curl: failed to start request", "red"]
+		
+	var response = await http.request_completed
+	http.queue_free()
+	
+	var result = response[0]
+	var status = response[1]
+	var body = response[3]
+	
+	if result != HTTPRequest.RESULT_SUCCESS:
+		return ["curl: request failed (" + str(result) + ")", "red"]
+	
+	return body.get_string_from_utf8()
 
 func uname(_args, options, _pipe_input):
 	if "-a" in options:

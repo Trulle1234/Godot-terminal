@@ -62,11 +62,12 @@ func _gui_input(event: InputEvent) -> void:
 		var current_command = lines[-1].substr(prompt.length())
 		
 		if current_command.strip_edges() != "":
-			entered_commands.append(current_command)
+			if not entered_commands[-1] == current_command:
+				entered_commands.append(current_command)
 			command_preview_i = entered_commands.size()
 			last_previewd_command = ""
 		
-		commands.execute(current_command)
+		await commands.execute(current_command)
 		
 		if current_command == "clear":
 			text += prompt
@@ -116,6 +117,9 @@ func _gui_input(event: InputEvent) -> void:
 		
 	elif event.is_action_pressed("zoom_out"):
 		theme.set_font_size("font_size", "CodeEdit", theme.get_font_size("font_size", "CodeEdit") - 1)
+	
+	elif event.is_action_pressed("paste"):
+		text += DisplayServer.clipboard_get()
 
 # revert the text to last "saved state"
 func revert_text():
