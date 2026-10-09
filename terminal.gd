@@ -30,12 +30,27 @@ const DEF_COLORS = {
 	"blue": "#0088FF"
 }
 
+const USER_README = "GODOT TERMINAL
+--------------
+
+- To change colors edit the hex codes in colors.json
+
+- If you want to change the font, add a TTF font to this folder and call it font.ttf
+
+
+!!! Don't touch entered_commands.save unless you know what you are doing !!!
+"
+
 func _ready() -> void:
 	commands = TerminalCommands.new(self)
 	
 	recognized_commands = commands.get_command_names()
 	working_dir = get_home_dir()
 	last_working_dir = working_dir
+	
+	if not FileAccess.file_exists("user://README.txt"):
+		var readme_file = FileAccess.open("user://README.txt", FileAccess.WRITE)
+		readme_file.store_string(USER_README)
 	
 	if FileAccess.file_exists("user://entered_commands.save"):
 		var history_file = FileAccess.open("user://entered_commands.save", FileAccess.READ)
@@ -57,6 +72,13 @@ func _ready() -> void:
 		var colors_file = FileAccess.open("user://colors.json", FileAccess.WRITE)
 		colors_file.store_string(JSON.stringify(DEF_COLORS, "\t"))
 		colors = DEF_COLORS
+	
+	if FileAccess.file_exists("user://font.ttf"):
+		var font_data: PackedByteArray = FileAccess.get_file_as_bytes("user://font.ttf")
+		var new_font = FontFile.new()
+		new_font.data = font_data
+		
+		theme.set_font("font", "CodeEdit", new_font)
 	
 	highlighter = TerminalHighlighter.new(colors)
 	syntax_highlighter = highlighter
@@ -181,9 +203,11 @@ func _gui_input(event: InputEvent) -> void:
 	
 	elif event.is_action_pressed("zoom_in"):
 		theme.set_font_size("font_size", "CodeEdit", theme.get_font_size("font_size", "CodeEdit") + 1)
+		theme.set_constant("caret_width", "CodeEdit", int((theme.get_font_size("font_size", "CodeEdit") + 1) * 0.625))
 		
 	elif event.is_action_pressed("zoom_out"):
 		theme.set_font_size("font_size", "CodeEdit", theme.get_font_size("font_size", "CodeEdit") - 1)
+		theme.set_constant("caret_width", "CodeEdit", int((theme.get_font_size("font_size", "CodeEdit") - 1) * 0.625))
 	
 	elif event.is_action_pressed("paste"):
 		text += DisplayServer.clipboard_get()
