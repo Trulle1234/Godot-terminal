@@ -18,11 +18,20 @@ var last_previewd_command = ""
 var command_preview_i = 0
 
 var highlighter: TerminalHighlighter
+var colors = {}
+const DEF_COLORS = {
+	"black": "#000000",
+	"white": "#DCDCDCFF",
+	"red": "#FF628C",
+	"yellow": "#FFC600",
+	"pink": "#FB94FF",
+	"green": "#3AD900",
+	"cyan": "#80FCFF",
+	"blue": "#0088FF"
+}
 
 func _ready() -> void:
 	commands = TerminalCommands.new(self)
-	highlighter = TerminalHighlighter.new()
-	syntax_highlighter = highlighter
 	
 	recognized_commands = commands.get_command_names()
 	working_dir = get_home_dir()
@@ -37,10 +46,26 @@ func _ready() -> void:
 		
 		if entered_commands is Array and entered_commands.size() > 500:
 			entered_commands = entered_commands.slice(-500)
-			
 	else:
 		var history_file = FileAccess.open("user://entered_commands.save", FileAccess.WRITE)
 		history_file.store_var(entered_commands)
+	
+	if FileAccess.file_exists("user://colors.json"):
+		var colors_file = FileAccess.open("user://colors.json", FileAccess.READ)
+		colors = JSON.parse_string(colors_file.get_as_text())
+	else:
+		var colors_file = FileAccess.open("user://colors.json", FileAccess.WRITE)
+		colors_file.store_string(JSON.stringify(DEF_COLORS, "\t"))
+		colors = DEF_COLORS
+	
+	highlighter = TerminalHighlighter.new(colors)
+	syntax_highlighter = highlighter
+	
+	theme.set_color("caret_color", "CodeEdit", colors["white"])
+	theme.set_color("font_color", "CodeEdit", colors["white"])
+	var current_style = theme.get_stylebox("normal", "CodeEdit").duplicate()
+	current_style.bg_color = Color(colors["black"])
+	theme.set_stylebox("normal", "CodeEdit", current_style)
 	
 	command_preview_i = entered_commands.size()
 	
@@ -49,10 +74,9 @@ func _ready() -> void:
 	text = startup_text + "\n\n" + prompt
 	last_valid_text = text
 	
-	# highlighting
 	highlighter.set_span_color(get_line_count() - 1, 0, prompt.length(), "green")
 	highlighter.add_command_color(recognized_commands, "yellow")
-
+	
 # handle enter presses
 func _gui_input(event: InputEvent) -> void:
 	if event.is_action_pressed("enter"):
@@ -61,13 +85,9 @@ func _gui_input(event: InputEvent) -> void:
 		var lines = text.split("\n")
 		var current_command = lines[-1].substr(prompt.length())
 		
-		if current_command.strip_edges() != "":
-			if not entered_commands[-1] == current_command:
-				entered_commands.append(current_command)
-			command_preview_i = entered_commands.size()
-			last_previewd_command = ""
-		
-		await commands.execute(current_command)
+		if entered_commands.is_empty() or entered_commands[-1] != current_command:
+			entered_commands.append(current_command)
+			await commands.execute(current_command)
 		
 		if current_command == "clear":
 			text += prompt
@@ -161,7 +181,7 @@ func _on_caret_changed() -> void:
 	
 	if current_line == total_lines - 1 and current_col < prompt.length():
 		set_caret_column(prompt.length())
-
+	
 # helper to put the caret at text end
 func set_caret_to_end() -> void:
 	var lines = text.split("\n")

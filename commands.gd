@@ -49,6 +49,7 @@ func _init(terminal_ref) -> void:
 func execute(command_line) -> void:
 	var history_file = FileAccess.open("user://entered_commands.save", FileAccess.WRITE)
 	history_file.store_var(terminal.entered_commands)
+	history_file.close()
 	
 	var lines = command_line.split(";")
 	
@@ -123,6 +124,9 @@ func handle_output(args, function, pipe_input=null, pipe=false):
 		return output_to_text(func_res)
 	
 	if func_res is Array:
+		if func_res.is_empty():
+			return
+		
 		if func_res[0] is Array:
 			for item in func_res:
 				if item is Array and item.size() >= 2:
@@ -568,7 +572,7 @@ func curl(args, _options, _pipe_input):
 	http.queue_free()
 	
 	var result = response[0]
-	var status = response[1]
+	var _status = response[1]
 	var body = response[3]
 	
 	if result != HTTPRequest.RESULT_SUCCESS:
@@ -644,3 +648,14 @@ func history(_args, _options, _pipe_input):
 func reset(_args, _options, _pipe_input):
 	if terminal.is_inside_tree():
 		terminal.get_tree().call_deferred("reload_current_scene")
+		
+func colors(_args, _options, _pipe_input):
+	return [
+		["white   ████", "white"],
+		["red     ████", "red"],
+		["yellow  ████", "yellow"],
+		["pink    ████", "pink"],
+		["green   ████", "green"],
+		["cyan    ████", "cyan"],
+		["blue    ████", "blue"],
+	]
