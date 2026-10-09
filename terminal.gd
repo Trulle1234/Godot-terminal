@@ -61,10 +61,10 @@ func _ready() -> void:
 	highlighter = TerminalHighlighter.new(colors)
 	syntax_highlighter = highlighter
 	
-	theme.set_color("caret_color", "CodeEdit", colors["white"])
-	theme.set_color("font_color", "CodeEdit", colors["white"])
+	theme.set_color("caret_color", "CodeEdit", syntax_highlighter.colors["white"])
+	theme.set_color("font_color", "CodeEdit", syntax_highlighter.colors["white"])
 	var current_style = theme.get_stylebox("normal", "CodeEdit").duplicate()
-	current_style.bg_color = Color(colors["black"])
+	current_style.bg_color = Color(syntax_highlighter.colors["black"])
 	theme.set_stylebox("normal", "CodeEdit", current_style)
 	
 	command_preview_i = entered_commands.size()

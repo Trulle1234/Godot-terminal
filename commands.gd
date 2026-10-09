@@ -28,15 +28,18 @@ const COMMAND_INFO = {
 	"tail": "Print last line of file",
 	"wc": "Count lines, words and bytes",
 	"sort": "Sort lines of text file",
+	"grep": "Serch for a patter in file",
 	"cp": "Copy file",
 	"mv": "Move or rename file",
 	"rm": "Remove file",
+	"curl": "Send HTTP request to server",
 	"uname": "Print system information",
 	"whoami": "Print the current user",
 	"clear": "Clear the terminal",
 	"help": "Show command information",
 	"history": "Show command history",
-	"reset": "Resets the terminal"
+	"reset": "Resets the terminal",
+	"colors": "Display all colors"
 }
 
 var terminal: Terminal
@@ -560,7 +563,7 @@ func curl(args, _options, _pipe_input):
 		url = "https://" + url
 	
 	var http = HTTPRequest.new()
-	http.timeout = 15
+	http.timeout = 10
 	terminal.add_child(http)
 	
 	var error = http.request(url)
@@ -651,11 +654,11 @@ func reset(_args, _options, _pipe_input):
 		
 func colors(_args, _options, _pipe_input):
 	return [
-		["white   ████", "white"],
-		["red     ████", "red"],
-		["yellow  ████", "yellow"],
-		["pink    ████", "pink"],
-		["green   ████", "green"],
-		["cyan    ████", "cyan"],
-		["blue    ████", "blue"],
+		["whith    ████   #" + terminal.syntax_highlighter.colors["white"].to_html().to_upper(), "white"],
+		["red      ████   #" + terminal.syntax_highlighter.colors["red"].to_html().to_upper(), "red"],
+		["yellow   ████   #" + terminal.syntax_highlighter.colors["yellow"].to_html().to_upper(), "yellow"],
+		["pink     ████   #" + terminal.syntax_highlighter.colors["pink"].to_html().to_upper(), "pink"],
+		["green    ████   #" + terminal.syntax_highlighter.colors["green"].to_html().to_upper(), "green"],
+		["cyan     ████   #" + terminal.syntax_highlighter.colors["cyan"].to_html().to_upper(), "cyan"],
+		["blue     ████   #" + terminal.syntax_highlighter.colors["blue"].to_html().to_upper(), "blue"],
 	]

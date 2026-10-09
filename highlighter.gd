@@ -8,14 +8,21 @@ var span_colors = {}
 var colors = {}
 var color_names = ["black", "red", "green", "yellow", "blue", "pink", "cyan", "white"]
 
-func _init(colors_dict) -> void:	
+func _init(colors_dict) -> void:
 	for original_key in colors_dict:
 		var key = original_key.to_lower()
 				
 		for name in color_names:
 			if key == name:
-				colors[name] = Color(colors_dict[original_key])
-				
+				if Color.html_is_valid(colors_dict[original_key]):
+					colors[name] = Color(colors_dict[original_key])
+				else:
+					colors[name] = Color("#000000")
+	
+	for name in color_names:
+		if name not in colors:
+			colors[name] = Color("#000000")
+	
 func _get_line_syntax_highlighting(line: int) -> Dictionary:
 	var color_map = {}
 	var text = get_text_edit().get_line(line)
