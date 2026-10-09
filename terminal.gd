@@ -84,10 +84,14 @@ func _gui_input(event: InputEvent) -> void:
 		
 		var lines = text.split("\n")
 		var current_command = lines[-1].substr(prompt.length())
-		
+			
 		if entered_commands.is_empty() or entered_commands[-1] != current_command:
 			entered_commands.append(current_command)
-			await commands.execute(current_command)
+		
+		await commands.execute(current_command)
+		
+		command_preview_i = entered_commands.size()
+		last_previewd_command = ""
 		
 		if current_command == "clear":
 			text += prompt
@@ -103,6 +107,8 @@ func _gui_input(event: InputEvent) -> void:
 		set_caret_to_end()
 	
 	elif event.is_action_pressed("up_arrow"):
+		accept_event()
+		
 		var lines = text.split("\n")
 		var current_command = lines[-1].substr(prompt.length())
 		
@@ -115,7 +121,11 @@ func _gui_input(event: InputEvent) -> void:
 			last_previewd_command = entered_commands[command_preview_i]
 			text += last_previewd_command
 		
+		set_caret_to_end()
+		
 	elif event.is_action_pressed("down_arrow"):
+		accept_event()
+		
 		var lines = text.split("\n")
 		var current_command = lines[-1].substr(prompt.length())
 		
@@ -131,6 +141,8 @@ func _gui_input(event: InputEvent) -> void:
 			else:
 				last_previewd_command = entered_commands[command_preview_i]
 				text += last_previewd_command
+		
+		set_caret_to_end()
 	
 	elif event.is_action_pressed("zoom_in"):
 		theme.set_font_size("font_size", "CodeEdit", theme.get_font_size("font_size", "CodeEdit") + 1)
