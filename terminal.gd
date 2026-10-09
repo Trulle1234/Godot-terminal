@@ -106,6 +106,41 @@ func _gui_input(event: InputEvent) -> void:
 			await get_tree().process_frame
 		set_caret_to_end()
 	
+	elif event.is_action_pressed("tab"):
+		accept_event()
+		
+		var parts = text.split("\n")[-1].substr(prompt.length()).split(" ")
+		var input_path = parts[-1]
+		var path = commands.solve_path(input_path)
+		var path_part = path.get_file()
+		var path_dir = path.get_base_dir()
+		
+		if input_path == "" or input_path.ends_with("/"):
+			path_dir = path
+			path_part = ""
+		
+		var dirs = DirAccess.get_directories_at(path_dir)
+		var files = DirAccess.get_files_at(path_dir)
+		var both = dirs + files
+		
+		var matches = []
+		
+		for thing in both:
+			if thing.to_lower().begins_with(path_part.to_lower()):
+				matches.append(thing)
+		
+		if matches.size() == 1:
+			var completion = matches[0]
+			text = text.left(text.length() - path_part.length()) + completion
+			
+			if completion in dirs:
+				text += "/"
+			else:
+				text += " "
+
+		last_valid_text = text
+		set_caret_to_end()
+		
 	elif event.is_action_pressed("up_arrow"):
 		accept_event()
 		
