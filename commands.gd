@@ -69,14 +69,22 @@ func execute(command_line) -> void:
 			var args = parts.slice(1)
 			
 			if command not in get_command_names():
-				terminal.write_output(command + ": not found", "red")
-				break
-			
-			var is_last = i == pipeline.size() - 1
-			if is_last:
-				await handle_output(args, Callable(self, command), pipe_input)
+				var pid = OS.create_process(command, args)
+				if pid == -1:
+					var solved_path = solve_path(command)
+					
+					if FileAccess.file_exists(solved_path):
+						pid = OS.create_process(solved_path, args)
+					
+					if pid == -1:
+						terminal.write_output(command + ": not found", "red")
+						break
 			else:
-				pipe_input =  await handle_output(args, Callable(self, command), pipe_input, true)
+				var is_last = i == pipeline.size() - 1
+				if is_last:
+					await handle_output(args, Callable(self, command), pipe_input)
+				else:
+					pipe_input =  await handle_output(args, Callable(self, command), pipe_input, true)
 
 func get_command_names():
 	var command_names = []
@@ -120,7 +128,7 @@ func handle_output(args, function, pipe_input=null, pipe=false):
 	
 	if handle_redirect(args, options, function, pipe_input):
 		return
-		
+	
 	var func_res = await function.call(args, options, pipe_input)
 	
 	if pipe:
