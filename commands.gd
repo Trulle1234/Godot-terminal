@@ -34,6 +34,7 @@ const COMMAND_INFO = {
 	"mv": "Move or rename file",
 	"rm": "Remove file",
 	"curl": "Send HTTP request to server",
+	"gdpt": "Get libraries, locally or from server.",
 	"uname": "Print system information",
 	"whoami": "Print the current user",
 	"clear": "Clear the terminal",
@@ -103,7 +104,7 @@ func register_commands(instance, file_name):
 	for method in script.get_script_method_list():
 		var name = method.name
 		
-		if name in blacklist or name == "get_command_blacklist":
+		if name in blacklist or name == "get_command_blacklist" or name == "get_command_info":
 			continue
 		
 		if name in command_registry:
