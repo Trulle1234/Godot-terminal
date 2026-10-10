@@ -12,7 +12,8 @@ const COMMAND_BLACKLIST = [
 	"output_to_text",
 	"remove_recursive",
 	"get_wc_text",
-	"get_grep_text"
+	"get_grep_text",
+	"register_commands"
 ]
 
 const COMMAND_INFO = {
@@ -43,11 +44,15 @@ const COMMAND_INFO = {
 }
 
 var terminal: Terminal
-var all_command_names
+
+var command_registry = {}
+var loaded_plugins = []
+
+var command_info = {}
 
 func _init(terminal_ref) -> void:
 	terminal = terminal_ref
-	all_command_names = get_command_names()
+	register_commands(self, "terminal")
 
 func execute(command_line) -> void:
 	var history_file = FileAccess.open("user://entered_commands.save", FileAccess.WRITE)
@@ -68,7 +73,7 @@ func execute(command_line) -> void:
 			var command = parts[0]
 			var args = parts.slice(1)
 			
-			if command not in get_command_names():
+			if command not in command_registry:
 				var pid = OS.create_process(command, args)
 				if pid == -1:
 					var solved_path = solve_path(command)
@@ -82,20 +87,37 @@ func execute(command_line) -> void:
 			else:
 				var is_last = i == pipeline.size() - 1
 				if is_last:
-					await handle_output(args, Callable(self, command), pipe_input)
+					await handle_output(args, command_registry[command], pipe_input)
 				else:
-					pipe_input =  await handle_output(args, Callable(self, command), pipe_input, true)
+					pipe_input =  await handle_output(args, command_registry[command], pipe_input, true)
 
-func get_command_names():
-	var command_names = []
+func register_commands(instance, file_name):
+	var script = instance.get_script()
+	var blacklist = []
 	
-	for method in get_script().get_script_method_list():
+	if instance.has_method("get_command_blacklist"):
+		blacklist = instance.get_command_blacklist()
+	if instance.has_method("get_command_info"):
+		command_info.merge(instance.get_command_info())
+	
+	for method in script.get_script_method_list():
 		var name = method.name
 		
-		if name not in COMMAND_BLACKLIST:
-			command_names.append(name)
+		if name in blacklist or name == "get_command_blacklist":
+			continue
 		
-	return command_names
+		if name in command_registry:
+			command_registry[file_name + "." + name] = Callable(instance, name)
+		else:
+			command_registry[name] = Callable(instance, name)
+		
+	terminal.highlighter.add_command_color(command_registry.keys(), "yellow")
+
+func get_command_blacklist():
+	return COMMAND_BLACKLIST
+
+func get_command_info():
+	return COMMAND_INFO
 
 func parse_line(line):
 	var regex = RegEx.create_from_string(r'"([^"]*)"|(\S+)')
@@ -583,13 +605,67 @@ func curl(args, _options, _pipe_input):
 	http.queue_free()
 	
 	var result = response[0]
-	var _status = response[1]
 	var body = response[3]
 	
 	if result != HTTPRequest.RESULT_SUCCESS:
 		return ["curl: request failed (" + str(result) + ")", "red"]
 	
 	return body.get_string_from_utf8()
+
+func gdpt(args, options, _pipe_input):
+	if not args:
+		return ["gdpt: invalid command", "red"]
+	
+	if args[0] == "install":
+		if args.size() < 2:
+			return ["gdpt: missing file", "red"]
+		
+		var paths = args.slice(1)
+		
+		for path in paths:
+			var text = ""
+			var name = ""
+			
+			if "-r" in options:
+				text = await curl([path], null, null)
+				
+				if text is Array:
+					return ["gdpt: failed to get '" + path + "'", "red"]
+				else:
+					if "-t" not in options:
+						name = path.get_file().get_basename()
+						var file =  FileAccess.open("user://libs/" + name + ".gd" , FileAccess.WRITE)
+						file.store_string(text)
+			
+			else:
+				var solved_path = solve_path(path)
+				var file = FileAccess.open(solved_path, FileAccess.READ)
+				if not file:
+					return ["gdpt: file not found '" + path + "'", "red"]
+				
+				if "-t" not in options:
+					var err = DirAccess.copy_absolute(solved_path, "user://libs/".path_join(solved_path.get_file()))
+					if err != OK:
+						return ["gdpt: failed to copy '" + path + "' to libs/", "red"]
+				
+				text = file.get_as_text()
+				name = solved_path.get_basename().get_file()
+			
+			var script = GDScript.new()
+			script.source_code = text
+			
+			if script.reload() != OK:
+				return ["gdpt: failed to import '" + path + "'", "red"]
+			
+			var instance = script.new(terminal)
+			
+			loaded_plugins.append(instance)
+			register_commands(instance, name)
+			
+		return "gdpt: installed successfully"
+	
+	else:
+		return ["gdpt: invalid command '" + args[0] + "'", "red"]
 
 func uname(_args, options, _pipe_input):
 	if "-a" in options:
@@ -631,7 +707,7 @@ func help(args, _options, _pipe_input):
 	
 	if args:
 		for arg in args:
-			var description = COMMAND_INFO.get(arg, "")
+			var description = command_info.get(arg, "")
 			
 			if description != "":
 				text += arg + " - " + description + "\n"
@@ -639,8 +715,8 @@ func help(args, _options, _pipe_input):
 				text += arg + "\n"
 	
 	else:
-		for command in get_command_names():
-			var description = COMMAND_INFO.get(command, "")
+		for command in command_registry.keys():
+			var description = command_info.get(command, "")
 			
 			if description != "":
 				text += command + " - " + description + "\n"

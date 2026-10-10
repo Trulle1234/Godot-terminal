@@ -11,7 +11,6 @@ var working_dir
 var last_working_dir
 
 var commands: TerminalCommands
-var recognized_commands
 
 var entered_commands = []
 var last_previewd_command = ""
@@ -42,15 +41,15 @@ const USER_README = "GODOT TERMINAL
 "
 
 func _ready() -> void:
-	commands = TerminalCommands.new(self)
-	
-	recognized_commands = commands.get_command_names()
 	working_dir = get_home_dir()
 	last_working_dir = working_dir
 	
 	if not FileAccess.file_exists("user://README.txt"):
 		var readme_file = FileAccess.open("user://README.txt", FileAccess.WRITE)
 		readme_file.store_string(USER_README)
+		
+	if not DirAccess.dir_exists_absolute("user://libs"):
+		DirAccess.make_dir_absolute("user://libs")
 	
 	if FileAccess.file_exists("user://entered_commands.save"):
 		var history_file = FileAccess.open("user://entered_commands.save", FileAccess.READ)
@@ -89,15 +88,18 @@ func _ready() -> void:
 	current_style.bg_color = Color(syntax_highlighter.colors["black"])
 	theme.set_stylebox("normal", "CodeEdit", current_style)
 	
+	commands = TerminalCommands.new(self)
+	var libs = DirAccess.get_files_at("user://libs")
+	
+	for lib in libs:
+		commands.gdpt(["install", "user://libs".path_join(lib)], ["-t"], null)
+	
 	command_preview_i = entered_commands.size()
-	
 	prompt = working_dir + "$ "
-	
 	text = startup_text + "\n\n" + prompt
 	last_valid_text = text
 	
 	highlighter.set_span_color(get_line_count() - 1, 0, prompt.length(), "green")
-	highlighter.add_command_color(recognized_commands, "yellow")
 	
 # handle enter presses
 func _gui_input(event: InputEvent) -> void:
