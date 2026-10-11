@@ -23,6 +23,7 @@ const COMMAND_INFO = {
 	"mkdir": "Create directory",
 	"rmdir": "Remove empty directory",
 	"ls": "List directory contents",
+	"tree": "Print directory tree",
 	"echo": "Output text",
 	"touch": "Create empty file",
 	"cat": "Print and concatenate file contents",
@@ -34,13 +35,14 @@ const COMMAND_INFO = {
 	"cp": "Copy file",
 	"mv": "Move or rename file",
 	"rm": "Remove file",
+	"ping": "Ping server",
 	"curl": "Send HTTP request to server",
 	"gdpt": "Get libraries, locally or from server.",
 	"uname": "Print system information",
 	"whoami": "Print the current user",
 	"clear": "Clear the terminal",
-	"help": "Show command information",
-	"history": "Show command history",
+	"help": "Print command information",
+	"history": "Print command history",
 	"reset": "Resets the terminal",
 	"colors": "Display all colors"
 }
@@ -206,13 +208,13 @@ func output_to_text(output):
 			return ""
 		
 		if output[0] is Array:
-			var text = ""
+			var lines = []
 			
 			for item in output:
 				if item is Array and not item.is_empty():
-					text += str(item[0]) + "\n"
-					
-			return text
+					lines.append(str(item[0]))
+			
+			return "\n".join(lines)
 		
 		return str(output[0])
 	
@@ -287,7 +289,7 @@ func get_wc_text(text_content, name, options):
 	if text_line == "":
 		text_line = str(lines) + " " + str(words) + " " + str(bytes) + " "
 	
-	return text_line + name + "\n"
+	return text_line + name
 
 func get_grep_text(text, pattern, options):
 	var output = ""
@@ -311,9 +313,9 @@ func get_grep_text(text, pattern, options):
 				output += line + "\n"
 	
 	if "-c" in options:
-		output += str(count) + "\n"
+		output += str(count)
 	
-	return output
+	return output.trim_suffix("\n")
 
 func get_tree_text(arg, path, options, current_layer, prefix=""):
 	if not DirAccess.dir_exists_absolute(path):
@@ -456,8 +458,11 @@ func tree(args, options, _pipe_input):
 	
 	return all
 
-func echo(args, _options, _pipe_input):
-	return " ".join(args) + "\n"
+func echo(args, options, _pipe_input):
+	if "-e" in options:
+		return (" ".join(args)).c_unescape()
+	else:
+		return " ".join(args)
 
 func touch(args, _options, _pipe_input):
 	for arg in args:
@@ -490,7 +495,10 @@ func cat(args, options, pipe_input):
 		var text_lines = text.split("\n")
 		text = ""
 		for i in text_lines.size():
-			text += str(i + 1) + " " + text_lines[i] + "\n"
+			if i == text_lines.size() - 1:
+				text += str(i + 1) + " " + text_lines[i]
+			else:
+				text += str(i + 1) + " " + text_lines[i] + "\n"
 	
 	return text
 
@@ -501,7 +509,7 @@ func head(args, _options, pipe_input):
 		if args.size() > 0:
 			text += "==> piped <==\n" + pipe_input.split("\n", false)[0] + "\n"
 		else:
-			text += pipe_input.split("\n", false)[0] + " \n \n"
+			text += pipe_input.split("\n", false)[0] + "\n"
 		
 	for arg in args:
 		var path = solve_path(arg)
@@ -513,11 +521,11 @@ func head(args, _options, pipe_input):
 		if args.size() > 1:
 			text += "==> " + path.get_file() + " <==\n" + file.get_line() + "\n"
 			if not arg == args[args.size() - 1]:
-				text += " \n"
+				text += "\n"
 		else:
 			text = file.get_line()
 			
-	return text
+	return text.trim_suffix("\n")
 
 func tail(args, _options, pipe_input):
 	var text = ""
@@ -526,7 +534,7 @@ func tail(args, _options, pipe_input):
 		if args.size() > 0:
 			text += "==> piped <==\n" + pipe_input.get_line().split("\n", false)[-1] + "\n"
 		else:
-			text += pipe_input.get_line().split("\n", false)[-1] + " \n \n"
+			text += pipe_input.get_line().split("\n", false)[-1] + "\n"
 			
 	for arg in args:
 		var path = solve_path(arg)
@@ -538,17 +546,17 @@ func tail(args, _options, pipe_input):
 		if args.size() > 1:
 			text += "==> " + path.get_file() + " <==\n" + file.get_as_text().split("\n", false)[-1]  + "\n"
 			if not arg == args[args.size() - 1]:
-				text += " \n"
+				text += "\n"
 		else:
 			text = file.get_as_text().split("\n", false)[-1]
 			
-	return text
+	return text.trim_suffix("\n")
 
 func wc(args, options, pipe_input):
 	var text = ""
 	
 	if pipe_input:
-		text += get_wc_text(pipe_input, "piped", options)
+		text += get_wc_text(pipe_input, "piped", options) + "\n"
 	
 	for arg in args:
 		var path = solve_path(arg)
@@ -557,9 +565,9 @@ func wc(args, options, pipe_input):
 		if not file:
 			return ["wc: " + arg + ": No such file", "red"]
 		
-		text += get_wc_text(file.get_as_text(), path.get_file(), options)
+		text += get_wc_text(file.get_as_text(), path.get_file(), options) + "\n"
 		
-	return text
+	return text.trim_suffix("\n")
 
 func sort(args, _options, pipe_input):
 	var lines = []
@@ -580,11 +588,7 @@ func sort(args, _options, pipe_input):
 	
 	lines.sort()
 	
-	var text = ""
-	for line in lines:
-		text += line + "\n"
-	
-	return text
+	return "\n".join(lines)
 
 func grep(args, options, pipe_input):
 	if not args:
@@ -836,14 +840,14 @@ func help(args, _options, _pipe_input):
 			else:
 				text += command + "\n"
 	
-	return text
+	return text.trim_suffix("\n")
 
 func history(_args, _options, _pipe_input):
 	var text = ""
 	for i in terminal.entered_commands.size():
 		text += str(i + 1) + " " + terminal.entered_commands[i] + "\n"
 		
-	return text
+	return text.trim_suffix("\n")
 
 func reset(_args, _options, _pipe_input):
 	if terminal.is_inside_tree():

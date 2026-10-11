@@ -61,7 +61,7 @@ func _ready() -> void:
 		var def_colors_file = FileAccess.open("res://colors.json", FileAccess.READ)
 		var def_colors_json = def_colors_file.get_as_text()
 		
-		var colors_file = FileAccess.open("res://colors.json", FileAccess.WRITE)
+		var colors_file = FileAccess.open("user://colors.json", FileAccess.WRITE)
 		colors_file.store_string(def_colors_json)
 		colors_file.close()
 		colors = JSON.parse_string(def_colors_json)
@@ -96,6 +96,9 @@ func _ready() -> void:
 	last_valid_text = text
 	
 	highlighter.set_span_color(get_line_count() - 1, 0, prompt.length(), "green")
+	
+	grab_focus()
+	set_caret_to_end()
 	
 # handle enter presses
 func _gui_input(event: InputEvent) -> void:
@@ -275,7 +278,7 @@ func _on_caret_changed() -> void:
 		theme.set_color("caret_color", "CodeEdit", syntax_highlighter.colors["caret"])
 
 # helper to put the caret at text end
-func set_caret_to_end() -> void:
+func set_caret_to_end():
 	var lines = text.split("\n")
 	set_caret_line(lines.size() - 1)
 	set_caret_column(lines[-1].length())
@@ -331,13 +334,13 @@ func get_home_dir():
 # write output to self
 func write_output(output, color="white"):
 	var start_line = get_line_count() - 1
-	var lines = output.split("\n", false)
-
+	var lines = output.split("\n", true)
+	
 	set_caret_line(start_line)
 	set_caret_column(get_line(start_line).length())
-
-	insert_text_at_caret("\n" + "\n".join(lines))
-
+	
+	insert_text_at_caret("\n" + str(output))
+	
 	for i in range(start_line + 1, get_line_count()):
 		highlighter.set_line_color(i, color)
 	
