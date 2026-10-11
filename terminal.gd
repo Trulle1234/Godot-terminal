@@ -134,17 +134,20 @@ func _gui_input(event: InputEvent) -> void:
 		command_preview_i = entered_commands.size()
 		last_previewd_command = ""
 		
+		set_caret_to_end()
+		
 		if current_command == "clear":
-			text += prompt
+			insert_text_at_caret(prompt)
 		else:
-			text += "\n" + prompt
+			insert_text_at_caret("\n" + prompt)
+		
+		set_caret_to_end()
 		
 		highlighter.set_span_color(get_line_count() - 1, 0, prompt.length(), "green")
 		
 		last_valid_text = text
 		
-		if get_tree():
-			await get_tree().process_frame
+		await get_tree().process_frame
 		set_caret_to_end()
 	
 	elif event.is_action_pressed("tab"):
@@ -305,10 +308,6 @@ func get_startup() -> String:
 	if host.is_empty():
 		host = OS.get_environment("COMPUTERNAME")
 	
-	var separator = ""
-	for c in user + "@" + host:
-		separator += "-"
-	
 	var lines = [
 		terminal_info,
 		"",
@@ -331,11 +330,18 @@ func get_home_dir():
 
 # write output to self
 func write_output(output, color="white"):
+	var start_line = get_line_count() - 1
 	var lines = output.split("\n", false)
+
+	set_caret_line(start_line)
+	set_caret_column(get_line(start_line).length())
+
+	insert_text_at_caret("\n" + "\n".join(lines))
+
+	for i in range(start_line + 1, get_line_count()):
+		highlighter.set_line_color(i, color)
 	
-	for line in lines:
-		text += "\n" + line
-		highlighter.set_line_color(get_line_count() - 1, color)
+	get_h_scroll_bar().value = 0
 
 # sets the current working dir
 func set_working_dir(path):

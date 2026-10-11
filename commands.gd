@@ -13,7 +13,8 @@ const COMMAND_BLACKLIST = [
 	"remove_recursive",
 	"get_wc_text",
 	"get_grep_text",
-	"register_commands"
+	"register_commands",
+	"get_tree_text"
 ]
 
 const COMMAND_INFO = {
@@ -223,12 +224,16 @@ func solve_path(path):
 	if path == "~":
 		return terminal.get_home_dir()
 	elif path.begins_with("~/"):
-		return (terminal.get_home_dir() + path.substr(1)).simplify_path()
+		return path.replace("~", terminal.get_home_dir()).simplify_path()
 	
 	if path == "-":
 		return terminal.last_working_dir
-	if path == "-/":
-		return (terminal.last_working_dir + path.substr(1)).simplify_path()
+	
+	if path == "$gd_user":
+		return OS.get_user_data_dir()
+	elif path.begins_with("$gd_user/"):
+		return path.replace("$gd_user", OS.get_user_data_dir()).simplify_path()
+		
 	
 	if path.begins_with("/") and OS.has_feature("windows"):
 		var parts = path.split("/", false)
@@ -310,6 +315,50 @@ func get_grep_text(text, pattern, options):
 	
 	return output
 
+func get_tree_text(arg, path, options, current_layer, prefix=""):
+	if not DirAccess.dir_exists_absolute(path):
+		return [[["tree: " + arg + ": No such directory", "red"]], 0, 0]
+	
+	var dirs = DirAccess.get_directories_at(path)
+	var files = DirAccess.get_files_at(path)
+	
+	var all_here = []
+	var entries = []
+	
+	var dir_ammount = 0
+	var file_ammount = 0
+	
+	for dir in dirs:
+		if not dir.begins_with(".") or "-a" in options:
+			entries.append([dir, true])
+
+	for file in files:
+		if not file.begins_with(".") or "-a" in options:
+			entries.append([file, false])
+	
+	for i in range(entries.size()):
+		var name = entries[i][0]
+		var is_dir = entries[i][1]
+		var is_last = i == entries.size() - 1
+		
+		var branch = "└── " if is_last else "├── "
+		var next_prefix = prefix + ("    " if is_last else "│   ")
+		
+		all_here.append([prefix + branch + name + ("/..." if is_dir and current_layer >= 3 else "/" if is_dir else ""), "white"])
+		
+		if is_dir:
+			dir_ammount += 1
+			
+			if current_layer < 3:
+				var result = get_tree_text(name, path.path_join(name), options, current_layer + 1, next_prefix)
+				all_here.append_array(result[0])
+				dir_ammount += result[1]
+				file_ammount += result[2]
+		else:
+			file_ammount += 1
+			
+	return [all_here, dir_ammount, file_ammount]
+
 func pwd(_args, _options, _pipe_input):
 	return terminal.working_dir
 	
@@ -384,6 +433,29 @@ func ls(args, options, _pipe_input):
 	
 	return all
 
+func tree(args, options, _pipe_input):
+	if args.is_empty():
+		args.append(terminal.working_dir)
+	
+	var all = []
+	
+	for arg in args:
+		var path = solve_path(arg)
+		var all_here = get_tree_text(arg, path, options, 1)
+		
+		all.append([path.get_file() + "/:", "cyan"])
+		all.append_array(all_here[0])
+		if not arg == args[args.size() - 1]:
+			all.append([" ", "white"])
+		
+		var ammount_info = str(all_here[1]) + (" directory" if all_here[1] == 1 else " directories") + ", "
+		ammount_info +=  str(all_here[2]) + (" file" if all_here[2] == 1 else " files")
+		
+		
+		all.append_array([[" ", "white"], [ammount_info , "white"]])
+	
+	return all
+
 func echo(args, _options, _pipe_input):
 	return " ".join(args) + "\n"
 
@@ -419,9 +491,6 @@ func cat(args, options, pipe_input):
 		text = ""
 		for i in text_lines.size():
 			text += str(i + 1) + " " + text_lines[i] + "\n"
-	
-	if text.length() > 50000:
-		text = text.substr(0, 50000) + "\n... output truncated"
 	
 	return text
 
@@ -594,6 +663,37 @@ func rm(args, options, _pipe_input):
 		else:
 			return ["rm: cannot remove '" + arg + "': No such file or directory", "red"]
 
+func ping(args, _options, _pipe_input):
+	if not args:
+		return ["ping: no URL specified", "red"]
+	
+	var url = args[0]
+	
+	if not url.begins_with("http://") and not url.begins_with("https://"):
+		url = "https://" + url
+	
+	var http = HTTPRequest.new()
+	http.timeout = 10
+	terminal.add_child(http)
+	
+	var start_time = Time.get_ticks_usec()
+	
+	var error = http.request(url, [], HTTPClient.METHOD_HEAD)
+	if error != OK:
+		http.queue_free()
+		return ["ping: failed to start request", "red"]
+		
+	var response = await http.request_completed
+	var end_time = Time.get_ticks_usec()
+	http.queue_free()
+	
+	var result = response[0]
+	
+	if result != HTTPRequest.RESULT_SUCCESS:
+		return ["ping: request failed (" + str(result) + ")", "red"]
+	
+	return "PING " + args[0] + "\nResponse in: " + str((end_time - start_time) / 1000.0) + " ms"
+
 func curl(args, _options, _pipe_input):
 	if not args:
 		return ["curl: no URL specified", "red"]
@@ -605,7 +705,6 @@ func curl(args, _options, _pipe_input):
 	
 	var http = HTTPRequest.new()
 	http.timeout = 10
-	http.use_threads = true
 	terminal.add_child(http)
 	
 	var error = http.request(url)
@@ -623,9 +722,6 @@ func curl(args, _options, _pipe_input):
 		return ["curl: request failed (" + str(result) + ")", "red"]
 		
 	var content = body.get_string_from_utf8()
-	
-	if content.length() > 50000:
-		content = content.substr(0, 50000) + "\n... output truncated"
 	
 	return content
 
