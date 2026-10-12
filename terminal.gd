@@ -31,6 +31,8 @@ const USER_README = "GODOT TERMINAL
 "
 
 func _ready() -> void:
+	get_v_scroll_bar().step = 1.0
+	
 	working_dir = get_home_dir()
 	last_working_dir = working_dir
 	
@@ -99,7 +101,7 @@ func _ready() -> void:
 	
 	grab_focus()
 	set_caret_to_end()
-	
+
 # handle enter presses
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed:

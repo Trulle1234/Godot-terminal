@@ -27,6 +27,7 @@ middle_mouse_paste_enabled = false
 empty_selection_clipboard_enabled = false
 caret_blink = true
 caret_blink_interval = 0.6
+caret_multiple = false
 script = ExtResource("1_7d6gb")
 
 [connection signal="caret_changed" from="TerminalInput" to="TerminalInput" method="_on_caret_changed"]
