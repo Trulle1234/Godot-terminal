@@ -31,6 +31,8 @@ const USER_README = "GODOT TERMINAL
 !!! Don't touch entered_commands.save unless you know what you are doing !!!
 "
 
+const DEF_COLORS_FILE = preload("res://themes/default.json")
+
 func _ready() -> void:
 	get_v_scroll_bar().step = 1.0
 	
@@ -61,13 +63,10 @@ func _ready() -> void:
 		var colors_file = FileAccess.open("user://colors.json", FileAccess.READ)
 		colors = JSON.parse_string(colors_file.get_as_text())
 	else:
-		var def_colors_file = FileAccess.open("res://colors.json", FileAccess.READ)
-		var def_colors_json = def_colors_file.get_as_text()
-		
 		var colors_file = FileAccess.open("user://colors.json", FileAccess.WRITE)
-		colors_file.store_string(def_colors_json)
+		colors_file.store_string(JSON.stringify(DEF_COLORS_FILE.data, "\t"))
 		colors_file.close()
-		colors = JSON.parse_string(def_colors_json)
+		colors = DEF_COLORS_FILE.data
 	
 	if FileAccess.file_exists("user://font.ttf"):
 		var font_data: PackedByteArray = FileAccess.get_file_as_bytes("user://font.ttf")
