@@ -1,7 +1,7 @@
 class_name Terminal
 extends CodeEdit
 
-var terminal_info = "Godot Terminal [Version 1.0]
+var terminal_info = "Godot Terminal [Version 1.1]
 Copyright (c) Trulle123 2026 - MIT License"
 
 var prompt
@@ -23,6 +23,7 @@ const USER_README = "GODOT TERMINAL
 --------------
 
 - To change colors edit the hex codes in colors.json
+  - You can fine examples at https://github.com/Trulle1234/Godot-terminal/tree/main/themes
 
 - If you want to change the font, add a TTF font to this folder and call it font.ttf
 
@@ -272,12 +273,18 @@ func _on_text_changed() -> void:
 	if not last_line.begins_with(prompt):
 		revert_text()
 		return
+	
+	var scrollbar = get_v_scroll_bar()
+	scrollbar.value = scrollbar.max_value
 
 func _on_caret_changed() -> void:
 	if has_selection():
 		theme.set_color("caret_color", "CodeEdit", Color(0.0, 0.0, 0.0, 0.0))
 	else:
 		theme.set_color("caret_color", "CodeEdit", syntax_highlighter.colors["caret"])
+	
+	if get_caret_line() == get_line_count() - 1:
+		set_line_as_last_visible.call_deferred(get_caret_line())
 
 # helper to put the caret at text end
 func set_caret_to_end():
