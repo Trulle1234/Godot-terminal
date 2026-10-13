@@ -1,7 +1,7 @@
 class_name Terminal
 extends CodeEdit
 
-var terminal_info = "Godot Terminal [Version 1.1]
+var terminal_info = "Godot Terminal [Version 1.2]
 Copyright (c) Trulle123 2026 - MIT License"
 
 var prompt
