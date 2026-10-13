@@ -34,6 +34,7 @@ const USER_README = "GODOT TERMINAL
 const DEF_COLORS_FILE = preload("res://themes/default.json")
 
 func _ready() -> void:
+	DisplayServer.window_set_min_size(Vector2i(640, 128))
 	get_v_scroll_bar().step = 1.0
 	
 	working_dir = get_home_dir()
@@ -199,19 +200,16 @@ func _gui_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("up_arrow"):
 		accept_event()
 		
-		var lines = text.split("\n")
-		var current_command = lines[-1].substr(prompt.length())
-		
 		if entered_commands.size() > 0:
-			if not last_previewd_command.is_empty():
-				text = text.left(text.length() - current_command.length())
-				
-			command_preview_i = max(command_preview_i - 1, 0)
+			var current_command = get_line(get_line_count() - 1).substr(prompt.length())
 			
+			text = text.left(text.length() - current_command.length())
+			
+			command_preview_i = max(command_preview_i - 1, 0)
 			last_previewd_command = entered_commands[command_preview_i]
+			
 			text += last_previewd_command
-		
-		set_caret_to_end()
+			set_caret_to_end()
 		
 	elif event.is_action_pressed("down_arrow"):
 		accept_event()
@@ -232,7 +230,7 @@ func _gui_input(event: InputEvent) -> void:
 				last_previewd_command = entered_commands[command_preview_i]
 				text += last_previewd_command
 		
-		set_caret_to_end()
+			set_caret_to_end()
 	
 	elif event.is_action_pressed("zoom_in"):
 		theme.set_font_size("font_size", "CodeEdit", theme.get_font_size("font_size", "CodeEdit") + 1)
@@ -250,6 +248,13 @@ func _gui_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("paste"):
 		text += DisplayServer.clipboard_get()
 		set_caret_to_end()
+	
+	elif event.is_action_pressed("clear"):
+		commands.execute("clear")
+		
+		set_caret_to_end()
+		insert_text_at_caret(prompt)
+		highlighter.set_span_color(get_line_count() - 1, 0, prompt.length(), "green")
 
 # revert the text to last "saved state"
 func revert_text():

@@ -90,7 +90,9 @@ func execute(command_line) -> void:
 					break
 				elif exit_code != 0:
 					terminal.write_output(command + ": process exited with code " + str(exit_code), "red")
-					
+				else:
+					terminal.write_output("\n".join(output))
+				
 			else:
 				var is_last = i == pipeline.size() - 1
 				if is_last:
@@ -202,7 +204,11 @@ func handle_redirect(args, options, function, pipe_input):
 		if append:
 			file.seek_end()
 		
-		file.store_string(output_to_text(func_res))
+		var output = output_to_text(func_res)
+		if not output.ends_with("\n"):
+			output += "\n"
+		
+		file.store_string(output)
 		
 		return true
 
@@ -228,7 +234,7 @@ func output_to_text(output):
 	return str(output)
 
 func solve_path(path):
-	path = path.replace("//", "/").replace("\\", "/")
+	path = path.replace("\\", "/")
 	
 	if path == "~":
 		return terminal.get_home_dir()
@@ -493,7 +499,7 @@ func touch(args, _options, _pipe_input):
 			return ["touch: cannot touch '" + arg + "'", "red"]
 		
 func cat(args, options, pipe_input):
-	if not args:
+	if not args or not pipe_input:
 		return ["cat: missing file", "red"]
 	
 	var text = ""
@@ -514,12 +520,15 @@ func cat(args, options, pipe_input):
 		var text_lines = text.split("\n")
 		text = ""
 		for i in text_lines.size():
-			text += str(i + 1) + " " + text_lines[i]
-	
+			if i == text_lines.size() - 1:
+				text += str(i + 1) + " " + text_lines[i]
+			else:
+				text += str(i + 1) + " " + text_lines[i] + "\n"
+				
 	return text
 
 func head(args, _options, pipe_input):
-	if not args:
+	if not args or not pipe_input:
 		return ["head: missing file", "red"]
 	
 	var text = ""
@@ -547,7 +556,7 @@ func head(args, _options, pipe_input):
 	return text.trim_suffix("\n")
 
 func tail(args, _options, pipe_input):
-	if not args:
+	if not args or not pipe_input:
 		return ["tail: missing file", "red"]
 	
 	var text = ""
@@ -575,8 +584,8 @@ func tail(args, _options, pipe_input):
 	return text.trim_suffix("\n")
 
 func wc(args, options, pipe_input):
-	if not args:
-		return ["cp: missing file", "red"]
+	if not args or not pipe_input:
+		return ["wc: missing file", "red"]
 	
 	var text = ""
 	
@@ -595,7 +604,7 @@ func wc(args, options, pipe_input):
 	return text.trim_suffix("\n")
 
 func sort(args, _options, pipe_input):
-	if not args:
+	if not args or not pipe_input:
 		return ["sort: missing file", "red"]
 	
 	var lines = []
@@ -619,7 +628,7 @@ func sort(args, _options, pipe_input):
 	return "\n".join(lines)
 
 func grep(args, options, pipe_input):
-	if not args:
+	if not args or not pipe_input:
 		return ["grep: missing pattern", "red"]
 	
 	var pattern = args[0]
