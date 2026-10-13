@@ -316,7 +316,7 @@ func get_prompt():
 	var full_prompt = (host + "@" + user + ":" + working_dir + "$ ").replace(get_home_dir(), "~")
 	var drive_regex = RegEx.create_from_string("([A-Za-z]):/")
 	full_prompt = drive_regex.sub(full_prompt, "/$1/", true)
-		
+	
 	return full_prompt
 
 func get_startup() -> String:
@@ -333,7 +333,7 @@ func get_startup() -> String:
 	var lines = [
 		terminal_info,
 		"",
-		user + "@" + host,
+		host + "@" + user,
 		"-".repeat((user + "@" + host).length()),
 		"OS: " + OS.get_name() + " " + OS.get_version_alias() + " " + Engine.get_architecture_name(),
 		"Host: " + host,
