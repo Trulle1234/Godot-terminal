@@ -14,6 +14,8 @@ func _init(colors_dict) -> void:
 				
 		for name in color_names:
 			if key == name:
+				if not colors_dict[original_key].begins_with("#"):
+					colors_dict[original_key] = "#" + colors_dict[original_key]
 				if Color.html_is_valid(colors_dict[original_key]):
 					colors[name] = Color(colors_dict[original_key])
 				else:

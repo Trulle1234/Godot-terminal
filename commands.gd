@@ -79,14 +79,18 @@ func execute(command_line) -> void:
 			
 			if command not in command_registry:
 				var solved_path = solve_path(command)
-				var pid = -1
+				var output = []
+				var exit_code = -1
 				
 				if FileAccess.file_exists(solved_path):
-					pid = OS.create_process(solved_path, args)
+					exit_code = OS.execute(solved_path, args, output, true)
 				
-				if pid == -1:
-					terminal.write_output(command + ": not found", "red")
+				if exit_code == -1:
+					terminal.write_output(command + ": command not found", "red")
 					break
+				elif exit_code != 0:
+					terminal.write_output(command + ": process exited with code " + str(exit_code), "red")
+					
 			else:
 				var is_last = i == pipeline.size() - 1
 				if is_last:
@@ -95,6 +99,9 @@ func execute(command_line) -> void:
 					pipe_input =  await handle_output(args, command_registry[command], pipe_input, true)
 
 func register_commands(instance, file_name):
+	if not is_instance_valid(instance) or not instance.get_script():
+		return false
+	
 	var script = instance.get_script()
 	var blacklist = []
 	
@@ -106,7 +113,7 @@ func register_commands(instance, file_name):
 	for method in script.get_script_method_list():
 		var name = method.name
 		
-		if name in blacklist or name == "get_command_blacklist" or name == "get_command_info":
+		if name in blacklist or name.begins_with("_") or name == "get_command_blacklist" or name == "get_command_info":
 			continue
 		
 		if name in command_registry:
@@ -115,6 +122,7 @@ func register_commands(instance, file_name):
 			command_registry[name] = Callable(instance, name)
 		
 	terminal.highlighter.add_command_color(command_registry.keys(), "yellow")
+	return true
 
 func get_command_blacklist():
 	return COMMAND_BLACKLIST
@@ -177,26 +185,25 @@ func handle_redirect(args, options, function, pipe_input):
 		var output_path = solve_path(args[-1])
 		var command_args = args.slice(0, -2)
 		var func_res = await function.call(command_args, options, pipe_input)
+		var append = false
+		if args[-2] == ">>":
+			append = true
 		var file
 		
-		if args[-2] == ">":
+		if append and FileAccess.file_exists(output_path):
+			file = FileAccess.open(output_path, FileAccess.READ_WRITE)
+		else:
 			file = FileAccess.open(output_path, FileAccess.WRITE)
-		elif args[-2] == ">>":
-			if FileAccess.file_exists(output_path):
-				file = FileAccess.open(output_path, FileAccess.READ_WRITE)
-			else:
-				file = FileAccess.open(output_path, FileAccess.WRITE)
 		
 		if not file:
 			terminal.write_output("Cannot create file: " + args[-1], "red")
 			return true
 			
-		if func_res:
-			if args[-2] == ">>":
-				file.seek_end()
+		if append:
+			file.seek_end()
 		
 		file.store_string(output_to_text(func_res))
-			
+		
 		return true
 
 func output_to_text(output):
@@ -221,7 +228,7 @@ func output_to_text(output):
 	return str(output)
 
 func solve_path(path):
-	path = path.replace("\\", "/")
+	path = path.replace("//", "/").replace("\\", "/")
 	
 	if path == "~":
 		return terminal.get_home_dir()
@@ -378,6 +385,9 @@ func cd(args, _options, _pipe_input):
 	return ["cd: " + args[0] + ": No such directory", "red"]
 
 func mkdir(args, options, _pipe_input):
+	if not args:
+		return ["rmdir: missing directory", "red"]
+	
 	for arg in args:
 		var path = solve_path(arg)
 		
@@ -391,6 +401,9 @@ func mkdir(args, options, _pipe_input):
 			return ["mkdir: cannot create directory '" + arg + "'", "red"]
 
 func rmdir(args, _options, _pipe_input):
+	if not args:
+		return ["rmdir: missing directory", "red"]
+		
 	for arg in args:
 		var path = solve_path(arg)
 		
@@ -465,6 +478,9 @@ func echo(args, options, _pipe_input):
 		return " ".join(args)
 
 func touch(args, _options, _pipe_input):
+	if not args:
+		return ["touch: missing path", "red"]
+	
 	for arg in args:
 		var path = solve_path(arg)
 		
@@ -477,6 +493,9 @@ func touch(args, _options, _pipe_input):
 			return ["touch: cannot touch '" + arg + "'", "red"]
 		
 func cat(args, options, pipe_input):
+	if not args:
+		return ["cat: missing file", "red"]
+	
 	var text = ""
 	
 	if pipe_input:
@@ -495,14 +514,14 @@ func cat(args, options, pipe_input):
 		var text_lines = text.split("\n")
 		text = ""
 		for i in text_lines.size():
-			if i == text_lines.size() - 1:
-				text += str(i + 1) + " " + text_lines[i]
-			else:
-				text += str(i + 1) + " " + text_lines[i] + "\n"
+			text += str(i + 1) + " " + text_lines[i]
 	
 	return text
 
 func head(args, _options, pipe_input):
+	if not args:
+		return ["head: missing file", "red"]
+	
 	var text = ""
 	
 	if pipe_input:
@@ -528,11 +547,14 @@ func head(args, _options, pipe_input):
 	return text.trim_suffix("\n")
 
 func tail(args, _options, pipe_input):
+	if not args:
+		return ["tail: missing file", "red"]
+	
 	var text = ""
 	
 	if pipe_input:
 		if args.size() > 0:
-			text += "==> piped <==\n" + pipe_input.get_line().split("\n", false)[-1] + "\n"
+			text += "==> piped <==\n" + pipe_input.split("\n", false)[-1] + "\n"
 		else:
 			text += pipe_input.get_line().split("\n", false)[-1] + "\n"
 			
@@ -553,6 +575,9 @@ func tail(args, _options, pipe_input):
 	return text.trim_suffix("\n")
 
 func wc(args, options, pipe_input):
+	if not args:
+		return ["cp: missing file", "red"]
+	
 	var text = ""
 	
 	if pipe_input:
@@ -570,6 +595,9 @@ func wc(args, options, pipe_input):
 	return text.trim_suffix("\n")
 
 func sort(args, _options, pipe_input):
+	if not args:
+		return ["sort: missing file", "red"]
+	
 	var lines = []
 	
 	if pipe_input:
@@ -650,6 +678,9 @@ func mv(args, _options, _pipe_input):
 		return ["mv: cannot move '" + args[0] + "'", "red"]
 
 func rm(args, options, _pipe_input):
+	if not args:
+		return ["rm: missing target file", "red"]
+	
 	for arg in args:
 		var path = solve_path(arg).trim_suffix("/")
 		
@@ -748,22 +779,12 @@ func gdpt(args, options, _pipe_input):
 				
 				if text is Array:
 					return ["gdpt: failed to get '" + path + "'", "red"]
-				else:
-					if "-t" not in options:
-						name = path.get_file().get_basename()
-						var file =  FileAccess.open("user://libs/" + name + ".gd" , FileAccess.WRITE)
-						file.store_string(text)
 			
 			else:
 				var solved_path = solve_path(path)
-				var file = FileAccess.open(solved_path, FileAccess.READ)
+				var file = FileAccess.open(solve_path(path), FileAccess.READ)
 				if not file:
 					return ["gdpt: file not found '" + path + "'", "red"]
-				
-				if "-t" not in options:
-					var err = DirAccess.copy_absolute(solved_path, "user://libs/".path_join(solved_path.get_file()))
-					if err != OK:
-						return ["gdpt: failed to copy '" + path + "' to libs/", "red"]
 				
 				text = file.get_as_text()
 				name = solved_path.get_basename().get_file()
@@ -777,7 +798,13 @@ func gdpt(args, options, _pipe_input):
 			var instance = script.new(terminal)
 			
 			loaded_plugins.append(instance)
-			register_commands(instance, name)
+			
+			if not register_commands(instance, name):
+				return ["gdpt: install failed, gdscript is invalid"]
+			
+			if "-t" not in options:
+				var file =  FileAccess.open("user://libs/" + name + ".gd" , FileAccess.WRITE)
+				file.store_string(text)
 			
 		return "gdpt: installed successfully"
 	

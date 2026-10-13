@@ -58,14 +58,20 @@ func _ready() -> void:
 	else:
 		var history_file = FileAccess.open("user://entered_commands.save", FileAccess.WRITE)
 		history_file.store_var(entered_commands)
-	
+
 	if FileAccess.file_exists("user://colors.json"):
 		var colors_file = FileAccess.open("user://colors.json", FileAccess.READ)
-		colors = JSON.parse_string(colors_file.get_as_text())
+		var json = JSON.new()
+		var colors_err = json.parse(colors_file.get_as_text())
+		
+		if colors_err != OK:
+			colors = DEF_COLORS_FILE.data
+		else:
+			colors = json.data
+			
 	else:
 		var colors_file = FileAccess.open("user://colors.json", FileAccess.WRITE)
 		colors_file.store_string(JSON.stringify(DEF_COLORS_FILE.data, "\t"))
-		colors_file.close()
 		colors = DEF_COLORS_FILE.data
 	
 	if FileAccess.file_exists("user://font.ttf"):
@@ -342,7 +348,6 @@ func get_home_dir():
 # write output to self
 func write_output(output, color="white"):
 	var start_line = get_line_count() - 1
-	var lines = output.split("\n", true)
 	
 	set_caret_line(start_line)
 	set_caret_column(get_line(start_line).length())
