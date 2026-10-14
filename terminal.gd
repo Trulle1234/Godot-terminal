@@ -100,7 +100,7 @@ func _ready() -> void:
 	var libs = DirAccess.get_files_at("user://libs")
 	
 	for lib in libs:
-		commands.gdpt(["install", "user://libs".path_join(lib)], ["-t"], null)
+		commands.gdpt(["install", ProjectSettings.globalize_path("user://libs".path_join(lib))], ["-t"], null)
 	
 	command_preview_i = entered_commands.size()
 	prompt = get_prompt()
@@ -153,8 +153,7 @@ func _gui_input(event: InputEvent) -> void:
 		
 		set_caret_to_end()
 		
-		if current_command == "clear":
-			last_valid_text = text
+		if text.is_empty():
 			insert_text_at_caret(prompt)
 		else:
 			insert_text_at_caret("\n" + prompt)
@@ -252,7 +251,7 @@ func _gui_input(event: InputEvent) -> void:
 			DisplayServer.clipboard_set(get_selected_text())
 	
 	elif event.is_action_pressed("paste"):
-		insert_text_at_caret(DisplayServer.clipboard_get())
+		insert_text_at_caret(DisplayServer.clipboard_get().replace("\n", "; "))
 	
 	elif event.is_action_pressed("clear"):
 		commands.execute("clear")

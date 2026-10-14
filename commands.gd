@@ -115,7 +115,7 @@ func register_commands(instance, file_name):
 			continue
 		
 		if method.args.size() != 3:
-			return false
+			continue
 		
 		var registered_name = name
 		
@@ -276,6 +276,24 @@ func solve_path(path):
 	
 	return path.simplify_path().replace("\\", "/")
 
+func is_path_protected(path):
+	path = path.simplify_path().replace("\\", "/").trim_suffix("/")
+	var home = terminal.get_home_dir().simplify_path().replace("\\", "/").trim_suffix("/")
+	
+	if OS.has_feature("windows"):
+		path = path.to_lower()
+		home = home.to_lower()
+	
+	if path == "" or path == "/":
+		return true
+	if path.length() == 2 and path[1] == ":":
+		return true
+		
+	if path == home or home.begins_with(path + "/"):
+		return true
+
+	return false
+
 func install_plugin(path, remote=false, temp=false, overwrite=false):
 	var src = ""
 	var name = ""
@@ -330,7 +348,7 @@ func install_plugin(path, remote=false, temp=false, overwrite=false):
 		var file =  FileAccess.open("user://libs/" + name + ".gd" , FileAccess.WRITE)
 		file.store_string(src)
 	
-	if not register_commands(instance, name):
+	if not register_commands(instance, name) and not overwrite:
 		if not temp:
 			DirAccess.remove_absolute("user://libs/" + name + ".gd")
 		
@@ -357,7 +375,7 @@ func remove_recursive(path):
 	return DirAccess.remove_absolute(path)
 
 func get_wc_text(text_content, name, options):
-	var lines = text_content.split("\n", false).size()
+	var lines = text_content.trim_suffix("\n").count("\n")
 	var word_regex = RegEx.create_from_string(r"\S+")
 	var words = word_regex.search_all(text_content).size()
 	var bytes = text_content.to_utf8_buffer().size()
@@ -463,6 +481,11 @@ func cd(args, _options, _pipe_input):
 	return ["cd: " + args[0] + ": No such directory", "red"]
 
 func mkdir(args, options, _pipe_input):
+	var valid_options = ["-p"]
+	for option in options:
+		if option not in valid_options:
+			return ["mkdir: unrecognized option '" + option + "'" , "red"]
+	
 	if not args:
 		return ["mkdir: missing directory", "red"]
 	
@@ -494,6 +517,11 @@ func rmdir(args, _options, _pipe_input):
 			return ["rmdir: " + arg + ": No such directory", "red"]
 		
 func ls(args, options, _pipe_input):
+	var valid_options = ["-a"]
+	for option in options:
+		if option not in valid_options:
+			return ["colors: unrecognized option '" + option + "'" , "red"]
+	
 	if args.is_empty():
 		args.append(terminal.working_dir)
 	
@@ -527,6 +555,11 @@ func ls(args, options, _pipe_input):
 	return all
 
 func tree(args, options, _pipe_input):
+	var valid_options = ["-a"]
+	for option in options:
+		if option not in valid_options:
+			return ["colors: unrecognized option '" + option + "'" , "red"]
+	
 	if args.is_empty():
 		args.append(terminal.working_dir)
 	
@@ -550,6 +583,11 @@ func tree(args, options, _pipe_input):
 	return all
 
 func echo(args, options, _pipe_input):
+	var valid_options = ["-e"]
+	for option in options:
+		if option not in valid_options:
+			return ["echo: unrecognized option '" + option + "'" , "red"]
+	
 	if "-e" in options:
 		return (" ".join(args)).c_unescape()
 	else:
@@ -571,6 +609,11 @@ func touch(args, _options, _pipe_input):
 			return ["touch: cannot touch '" + arg + "'", "red"]
 		
 func cat(args, options, pipe_input):
+	var valid_options = ["-n"]
+	for option in options:
+		if option not in valid_options:
+			return ["cat: unrecognized option '" + option + "'" , "red"]
+	
 	if args.is_empty() and pipe_input == null:
 		return ["cat: missing file", "red"]
 	
@@ -637,7 +680,7 @@ func tail(args, _options, pipe_input):
 		if args.size() > 0:
 			text += "==> piped <==\n" + pipe_input.split("\n", false)[-1] + "\n"
 		else:
-			text += pipe_input.get_line().split("\n", false)[-1] + "\n"
+			text += pipe_input.split("\n", false)[-1] + "\n"
 			
 	for arg in args:
 		var path = solve_path(arg)
@@ -656,6 +699,11 @@ func tail(args, _options, pipe_input):
 	return text.trim_suffix("\n")
 
 func wc(args, options, pipe_input):
+	var valid_options = ["-l", "-w", "-c"]
+	for option in options:
+		if option not in valid_options:
+			return ["colors: unrecognized option '" + option + "'" , "red"]
+	
 	if args.is_empty() and pipe_input == null:
 		return ["wc: missing file", "red"]
 	
@@ -700,6 +748,11 @@ func sort(args, _options, pipe_input):
 	return "\n".join(lines)
 
 func grep(args, options, pipe_input):
+	var valid_options = ["-i", "-v", "-c"]
+	for option in options:
+		if option not in valid_options:
+			return ["grep: unrecognized option '" + option + "'" , "red"]
+	
 	if not args:
 		return ["grep: missing pattern", "red"]
 	
@@ -759,11 +812,19 @@ func mv(args, _options, _pipe_input):
 		return ["mv: cannot move '" + args[0] + "'", "red"]
 
 func rm(args, options, _pipe_input):
+	var valid_options = ["-r"]
+	for option in options:
+		if option not in valid_options:
+			return ["rm: unrecognized option '" + option + "'" , "red"]
+	
 	if not args:
 		return ["rm: missing target file", "red"]
 	
 	for arg in args:
-		var path = solve_path(arg).trim_suffix("/")
+		var path = solve_path(arg).simplify_path().trim_suffix("/")
+		
+		if is_path_protected(path):
+			return ["rm: refusing to remove protected path '" + arg + "'", "red"]
 		
 		if FileAccess.file_exists(path):
 			var err = DirAccess.remove_absolute(path)
@@ -842,9 +903,14 @@ func curl(args, _options, _pipe_input):
 	return content
 
 func gdpt(args, options, _pipe_input):
+	var valid_options = ["-r", "-t"]
+	for option in options:
+		if option not in valid_options:
+			return ["gdpt: unrecognized option '" + option + "'" , "red"]
+	
 	if not args:
 		return ["gdpt: invalid command", "red"]
-	if args[0] != "install" or args[0] != "update":
+	if args[0] not in ["install", "update"]:
 		return ["gdpt: invalid command '" + args[0] + "'", "red"]
 	if args.size() < 2:
 		return ["gdpt: missing file", "red"]
@@ -865,6 +931,11 @@ func gdpt(args, options, _pipe_input):
 	return "gdpt: installed " + str(installed) + " libraries successfully"
 
 func uname(_args, options, _pipe_input):
+	var valid_options = ["-a", "-s", "o-", "-r", "-n", "m", "-p", "-i"]
+	for option in options:
+		if option not in valid_options:
+			return ["uname: unrecognized option '" + option + "'" , "red"]
+	
 	if "-a" in options:
 		var host = OS.get_environment("COMPUTERNAME")
 		if host.is_empty():
@@ -948,6 +1019,12 @@ func reset(_args, _options, _pipe_input):
 
 func colors(_args, options, _pipe_input):
 	var lines = []
+	
+	var valid_options = ["-a"]
+	for option in options:
+		if option not in valid_options:
+			return ["colors: unrecognized option '" + option + "'" , "red"]
+	
 	if "-a" in options:
 		lines.append_array([
 			["bg        ████   #" + terminal.syntax_highlighter.colors["bg"].to_html().to_upper(), "bg"],
