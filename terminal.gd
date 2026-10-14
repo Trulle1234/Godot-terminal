@@ -1,11 +1,14 @@
 class_name Terminal
 extends CodeEdit
 
+var busy = false
+
 var terminal_info = "Godot Terminal [Version 1.2]
 Copyright (c) Trulle123 2026 - MIT License"
 
 var prompt
 
+var updating_output = false
 var last_valid_text = ""
 var working_dir
 var last_working_dir
@@ -132,15 +135,17 @@ func _gui_input(event: InputEvent) -> void:
 				accept_event()
 				return
 	
-	if event.is_action_pressed("enter"):
+	if event.is_action_pressed("enter") and not busy:
 		accept_event()
+		busy = true
 		
 		var lines = text.split("\n")
 		var current_command = lines[-1].substr(prompt.length())
-			
+		
 		if entered_commands.is_empty() or entered_commands[-1] != current_command:
 			entered_commands.append(current_command)
 		
+		updating_output = true
 		await commands.execute(current_command)
 		
 		command_preview_i = entered_commands.size()
@@ -149,6 +154,7 @@ func _gui_input(event: InputEvent) -> void:
 		set_caret_to_end()
 		
 		if current_command == "clear":
+			last_valid_text = text
 			insert_text_at_caret(prompt)
 		else:
 			insert_text_at_caret("\n" + prompt)
@@ -158,9 +164,11 @@ func _gui_input(event: InputEvent) -> void:
 		highlighter.set_span_color(get_line_count() - 1, 0, prompt.length(), "green")
 		
 		last_valid_text = text
+		updating_output = false
 		
 		await get_tree().process_frame
 		set_caret_to_end()
+		busy = false
 	
 	elif event.is_action_pressed("tab"):
 		accept_event()
@@ -199,7 +207,6 @@ func _gui_input(event: InputEvent) -> void:
 		
 	elif event.is_action_pressed("up_arrow"):
 		accept_event()
-		
 		if entered_commands.size() > 0:
 			var current_command = get_line(get_line_count() - 1).substr(prompt.length())
 			
@@ -243,11 +250,9 @@ func _gui_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("copy"):
 		if has_selection():
 			DisplayServer.clipboard_set(get_selected_text())
-			set_caret_to_end()
 	
 	elif event.is_action_pressed("paste"):
-		text += DisplayServer.clipboard_get()
-		set_caret_to_end()
+		insert_text_at_caret(DisplayServer.clipboard_get())
 	
 	elif event.is_action_pressed("clear"):
 		commands.execute("clear")
@@ -258,20 +263,21 @@ func _gui_input(event: InputEvent) -> void:
 
 # revert the text to last "saved state"
 func revert_text():
-	text_changed.disconnect(_on_text_changed)
-	
 	var saved_col = get_caret_column()
 	
+	updating_output = true
 	text = last_valid_text
-	await get_tree().process_frame
 	
 	set_caret_line(get_line_count() - 1)
-	set_caret_column(saved_col)
+	set_caret_column(min(saved_col, get_line(get_line_count() - 1).length()))
 	
-	text_changed.connect(_on_text_changed)
+	updating_output = false
 
 # when text chaged stop non allowed deleation
 func _on_text_changed() -> void:
+	if updating_output:
+		return
+	
 	var lines = text.split("\n")
 	var current_line_i = get_caret_line()
 	
@@ -284,6 +290,12 @@ func _on_text_changed() -> void:
 		revert_text()
 		return
 	
+	var protected_text = last_valid_text.substr(0, last_valid_text.rfind("\n") + 1)
+	if not text.begins_with(protected_text):
+		revert_text()
+		return
+	
+	last_valid_text = text
 	var scrollbar = get_v_scroll_bar()
 	scrollbar.value = scrollbar.max_value
 
@@ -309,9 +321,15 @@ func get_prompt():
 	elif OS.has_environment("USER"):
 		user = OS.get_environment("USER")
 	
-	var host = OS.get_environment("HOSTNAME")
+	var host = OS.get_environment("COMPUTERNAME")
 	if host.is_empty():
-		host = OS.get_environment("COMPUTERNAME")
+		host = OS.get_environment("HOSTNAME")
+	if host.is_empty():
+		var output = []
+		if OS.execute("hostname", [], output) == 0 and not output.is_empty():
+			host = output[0].strip_edges()
+	if host.is_empty():
+		host = "localhost"
 	
 	var full_prompt = (host + "@" + user + ":" + working_dir + "$ ").replace(get_home_dir(), "~")
 	var drive_regex = RegEx.create_from_string("([A-Za-z]):/")
@@ -326,9 +344,15 @@ func get_startup() -> String:
 	elif OS.has_environment("USER"):
 		user = OS.get_environment("USER")
 	
-	var host = OS.get_environment("HOSTNAME")
+	var host = OS.get_environment("COMPUTERNAME")
 	if host.is_empty():
-		host = OS.get_environment("COMPUTERNAME")
+		host = OS.get_environment("HOSTNAME")
+	if host.is_empty():
+		var output = []
+		if OS.execute("hostname", [], output) == 0 and not output.is_empty():
+			host = output[0].strip_edges()
+	if host.is_empty():
+		host = "localhost"
 	
 	var lines = [
 		terminal_info,
@@ -352,6 +376,9 @@ func get_home_dir():
 
 # write output to self
 func write_output(output, color="white"):
+	var was_updating = updating_output
+	updating_output = true
+
 	var start_line = get_line_count() - 1
 	
 	set_caret_line(start_line)
@@ -361,6 +388,9 @@ func write_output(output, color="white"):
 	
 	for i in range(start_line + 1, get_line_count()):
 		highlighter.set_line_color(i, color)
+	
+	last_valid_text = text
+	updating_output = was_updating
 	
 	get_h_scroll_bar().value = 0
 
@@ -376,3 +406,5 @@ func clear_and_reset_colors():
 	highlighter.line_colors.clear()
 	highlighter.span_colors.clear()
 	highlighter.clear_highlighting_cache()
+	
+	last_valid_text = text

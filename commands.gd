@@ -14,7 +14,8 @@ const COMMAND_BLACKLIST = [
 	"get_wc_text",
 	"get_grep_text",
 	"register_commands",
-	"get_tree_text"
+	"get_tree_text",
+	"install_plugin"
 ]
 
 const COMMAND_INFO = {
@@ -31,7 +32,7 @@ const COMMAND_INFO = {
 	"tail": "Print last line of file",
 	"wc": "Count lines, words and bytes",
 	"sort": "Sort lines of text file",
-	"grep": "Serch for a patter in file",
+	"grep": "Search for a pattern in file",
 	"cp": "Copy file",
 	"mv": "Move or rename file",
 	"rm": "Remove file",
@@ -79,19 +80,14 @@ func execute(command_line) -> void:
 			
 			if command not in command_registry:
 				var solved_path = solve_path(command)
-				var output = []
-				var exit_code = -1
+				var pid = -1
 				
 				if FileAccess.file_exists(solved_path):
-					exit_code = OS.execute(solved_path, args, output, true)
+					pid = OS.create_process(solved_path, args)
 				
-				if exit_code == -1:
-					terminal.write_output(command + ": command not found", "red")
+				if pid == -1:
+					terminal.write_output(command + ": not found", "red")
 					break
-				elif exit_code != 0:
-					terminal.write_output(command + ": process exited with code " + str(exit_code), "red")
-				else:
-					terminal.write_output("\n".join(output))
 				
 			else:
 				var is_last = i == pipeline.size() - 1
@@ -109,8 +105,8 @@ func register_commands(instance, file_name):
 	
 	if instance.has_method("get_command_blacklist"):
 		blacklist = instance.get_command_blacklist()
-	if instance.has_method("get_command_info"):
-		command_info.merge(instance.get_command_info())
+	
+	var new_commands = {}
 	
 	for method in script.get_script_method_list():
 		var name = method.name
@@ -118,11 +114,24 @@ func register_commands(instance, file_name):
 		if name in blacklist or name.begins_with("_") or name == "get_command_blacklist" or name == "get_command_info":
 			continue
 		
-		if name in command_registry:
-			command_registry[file_name + "." + name] = Callable(instance, name)
-		else:
-			command_registry[name] = Callable(instance, name)
+		if method.args.size() != 3:
+			return false
 		
+		var registered_name = name
+		
+		if name in command_registry:
+			registered_name = file_name + "." + name
+			
+		if registered_name in command_registry or registered_name in new_commands:
+			return false
+			
+		new_commands[registered_name] = Callable(instance, name)
+	
+	if instance.has_method("get_command_info"):
+			command_info.merge(instance.get_command_info(), true)
+	
+	command_registry.merge(new_commands)
+	
 	terminal.highlighter.add_command_color(command_registry.keys(), "yellow")
 	return true
 
@@ -178,10 +187,10 @@ func handle_output(args, function, pipe_input=null, pipe=false):
 				if item is Array and item.size() >= 2:
 					terminal.write_output(item[0], item[1])
 		else:
-			terminal.write_output(func_res[0], func_res[1])
+			terminal.write_output(func_res[0], func_res[1] if func_res.size() > 1 else "white")
 	elif func_res:
 		terminal.write_output(func_res)
-			
+
 func handle_redirect(args, options, function, pipe_input):
 	if args.size() >= 2 and (args[-2] == ">" or args[-2] == ">>"):
 		var output_path = solve_path(args[-1])
@@ -266,6 +275,69 @@ func solve_path(path):
 		path = terminal.working_dir.path_join(path)
 	
 	return path.simplify_path().replace("\\", "/")
+
+func install_plugin(path, remote=false, temp=false, overwrite=false):
+	var src = ""
+	var name = ""
+	
+	# get script
+	if remote:
+		src  = await curl([path], null, null)
+		if src is Array:
+			return ["gdpt: failed to get '" + path + "'", "red"]
+		
+		name = path.split("?")[0].get_basename().get_file()
+	else:
+		var solved_path = solve_path(path)
+		var file = FileAccess.open(solve_path(path), FileAccess.READ)
+		if not file:
+			return ["gdpt: file not found '" + path + "'", "red"]
+		
+		src = file.get_as_text()
+		name = solved_path.get_basename().get_file()
+	
+	if name.is_empty() or name == "." or name == "..":
+		return ["gdpt: invalid library name", "red"]
+		
+	# compile script
+	var script = GDScript.new()
+	script.source_code = src
+	if script.reload() != OK:
+		return ["gdpt: failed to import '" + path + "'", "red"]
+	
+	var init_args = 0
+	for method in script.get_script_method_list():
+		if method.name == "_init":
+			init_args = method.args.size()
+			break
+		
+	var instance
+	
+	if init_args == 0:
+		instance = script.new()
+	elif init_args == 1:
+		instance = script.new(terminal)
+	else:
+		return ["gdpt: unsupported library constructor", "red"]
+		
+	if not is_instance_valid(instance):
+		return ["gdpt: failed to create library instance", "red"]
+	
+	if not temp:
+		if FileAccess.file_exists("user://libs/" + name + ".gd") and not overwrite:
+			return ["gdpt: library '" + name + "' already installed, use gdpt update to overwrite.", "red"]
+		
+		var file =  FileAccess.open("user://libs/" + name + ".gd" , FileAccess.WRITE)
+		file.store_string(src)
+	
+	if not register_commands(instance, name):
+		if not temp:
+			DirAccess.remove_absolute("user://libs/" + name + ".gd")
+		
+		return ["gdpt: invalid library interface", "red"]
+	
+	loaded_plugins.append(instance)
+	return ""
 
 func remove_recursive(path):
 	for file in DirAccess.get_files_at(path):
@@ -392,7 +464,7 @@ func cd(args, _options, _pipe_input):
 
 func mkdir(args, options, _pipe_input):
 	if not args:
-		return ["rmdir: missing directory", "red"]
+		return ["mkdir: missing directory", "red"]
 	
 	for arg in args:
 		var path = solve_path(arg)
@@ -499,7 +571,7 @@ func touch(args, _options, _pipe_input):
 			return ["touch: cannot touch '" + arg + "'", "red"]
 		
 func cat(args, options, pipe_input):
-	if not args or not pipe_input:
+	if args.is_empty() and pipe_input == null:
 		return ["cat: missing file", "red"]
 	
 	var text = ""
@@ -528,7 +600,7 @@ func cat(args, options, pipe_input):
 	return text
 
 func head(args, _options, pipe_input):
-	if not args or not pipe_input:
+	if args.is_empty() and pipe_input == null:
 		return ["head: missing file", "red"]
 	
 	var text = ""
@@ -551,12 +623,12 @@ func head(args, _options, pipe_input):
 			if not arg == args[args.size() - 1]:
 				text += "\n"
 		else:
-			text = file.get_line()
+			text += file.get_line()
 			
 	return text.trim_suffix("\n")
 
 func tail(args, _options, pipe_input):
-	if not args or not pipe_input:
+	if args.is_empty() and pipe_input == null:
 		return ["tail: missing file", "red"]
 	
 	var text = ""
@@ -579,12 +651,12 @@ func tail(args, _options, pipe_input):
 			if not arg == args[args.size() - 1]:
 				text += "\n"
 		else:
-			text = file.get_as_text().split("\n", false)[-1]
+			text += file.get_as_text().split("\n", false)[-1]
 			
 	return text.trim_suffix("\n")
 
 func wc(args, options, pipe_input):
-	if not args or not pipe_input:
+	if args.is_empty() and pipe_input == null:
 		return ["wc: missing file", "red"]
 	
 	var text = ""
@@ -604,7 +676,7 @@ func wc(args, options, pipe_input):
 	return text.trim_suffix("\n")
 
 func sort(args, _options, pipe_input):
-	if not args or not pipe_input:
+	if args.is_empty() and pipe_input == null:
 		return ["sort: missing file", "red"]
 	
 	var lines = []
@@ -628,7 +700,7 @@ func sort(args, _options, pipe_input):
 	return "\n".join(lines)
 
 func grep(args, options, pipe_input):
-	if not args or not pipe_input:
+	if not args:
 		return ["grep: missing pattern", "red"]
 	
 	var pattern = args[0]
@@ -772,61 +844,39 @@ func curl(args, _options, _pipe_input):
 func gdpt(args, options, _pipe_input):
 	if not args:
 		return ["gdpt: invalid command", "red"]
-	
-	if args[0] == "install":
-		if args.size() < 2:
-			return ["gdpt: missing file", "red"]
-		
-		var paths = args.slice(1)
-		
-		for path in paths:
-			var text = ""
-			var name = ""
-			
-			if "-r" in options:
-				text = await curl([path], null, null)
-				
-				if text is Array:
-					return ["gdpt: failed to get '" + path + "'", "red"]
-			
-			else:
-				var solved_path = solve_path(path)
-				var file = FileAccess.open(solve_path(path), FileAccess.READ)
-				if not file:
-					return ["gdpt: file not found '" + path + "'", "red"]
-				
-				text = file.get_as_text()
-				name = solved_path.get_basename().get_file()
-			
-			var script = GDScript.new()
-			script.source_code = text
-			
-			if script.reload() != OK:
-				return ["gdpt: failed to import '" + path + "'", "red"]
-			
-			var instance = script.new(terminal)
-			
-			loaded_plugins.append(instance)
-			
-			if not register_commands(instance, name):
-				return ["gdpt: install failed, gdscript is invalid"]
-			
-			if "-t" not in options:
-				var file =  FileAccess.open("user://libs/" + name + ".gd" , FileAccess.WRITE)
-				file.store_string(text)
-			
-		return "gdpt: installed successfully"
-	
-	else:
+	if args[0] != "install" or args[0] != "update":
 		return ["gdpt: invalid command '" + args[0] + "'", "red"]
+	if args.size() < 2:
+		return ["gdpt: missing file", "red"]
+	
+	var overwrite = false
+	if args[0] == "update":
+		overwrite = true
+	
+	var installed = 0
+	
+	for path in args.slice(1):
+		var result = await install_plugin(path, "-r" in options, "-t" in options, overwrite)
+		if result is Array:
+			return result
+		
+		installed += 1
+	
+	return "gdpt: installed " + str(installed) + " libraries successfully"
 
 func uname(_args, options, _pipe_input):
 	if "-a" in options:
-		var hostname = OS.get_environment("HOSTNAME")
-		if hostname.is_empty():
-			hostname = OS.get_environment("COMPUTERNAME")
-
-		return OS.get_name() + " " + OS.get_version_alias() + " " + OS.get_version() + " " + hostname + " " + Engine.get_architecture_name() + " "
+		var host = OS.get_environment("COMPUTERNAME")
+		if host.is_empty():
+			host = OS.get_environment("HOSTNAME")
+		if host.is_empty():
+			var output = []
+			if OS.execute("hostname", [], output) == 0 and not output.is_empty():
+				host = output[0].strip_edges()
+		if host.is_empty():
+			host = "localhost"
+		
+		return OS.get_name() + " " + OS.get_version_alias() + " " + OS.get_version() + " " + host + " " + Engine.get_architecture_name() + " "
 		
 	var text = ""
 	if "-s" in options or "-o" in options:
@@ -834,10 +884,17 @@ func uname(_args, options, _pipe_input):
 	if "-r" in options:
 		text += OS.get_version_alias() + " " + OS.get_version() + " "
 	if "-n" in options:
-		var hostname = OS.get_environment("HOSTNAME")
-		if hostname.is_empty():
-			hostname = OS.get_environment("COMPUTERNAME")
-		text += hostname + " "
+		var host = OS.get_environment("COMPUTERNAME")
+		if host.is_empty():
+			host = OS.get_environment("HOSTNAME")
+		if host.is_empty():
+			var output = []
+			if OS.execute("hostname", [], output) == 0 and not output.is_empty():
+				host = output[0].strip_edges()
+		if host.is_empty():
+			host = "localhost"
+			
+		text += host + " "
 	if "-m" in options or "-p" in options or "-i" in options:
 		text += Engine.get_architecture_name() + " "
 	

@@ -14,10 +14,12 @@ func _init(colors_dict) -> void:
 				
 		for name in color_names:
 			if key == name:
-				if not colors_dict[original_key].begins_with("#"):
-					colors_dict[original_key] = "#" + colors_dict[original_key]
-				if Color.html_is_valid(colors_dict[original_key]):
-					colors[name] = Color(colors_dict[original_key])
+				var hex = str(colors_dict[original_key])
+				if not hex.begins_with("#"):
+					hex = "#" + hex
+				
+				if Color.html_is_valid(hex):
+					colors[name] = Color(hex)
 				else:
 					colors[name] = Color("#000000")
 	
@@ -39,7 +41,7 @@ func _get_line_syntax_highlighting(line: int) -> Dictionary:
 		for span in span_colors[line]:
 			color_map[span.start] = {"color": span.color}
 			color_map[span.end] = {"color": colors["white"]}
-	
+			
 	# other rules
 	for rule in rules:
 		var command_text = text
@@ -60,7 +62,7 @@ func _get_line_syntax_highlighting(line: int) -> Dictionary:
 			
 			color_map[start] = {"color": color}
 			color_map[end] = {"color": colors["white"]}
-		
+	
 	return color_map
 
 # add command with color
@@ -72,8 +74,7 @@ func add_command_color(words, color):
 	
 	var regex = RegEx.create_from_string("(^\\s*|;\\s*|\\|\\s*)(" + "|".join(escaped_words) + ")(?=\\s|$|;|\\|)")
 	
-	rules.append({"regex": regex, "color": colors[color]})
-	
+	rules = [{"regex": regex, "color": colors[color]}]
 	clear_highlighting_cache()
 
 # color a line
