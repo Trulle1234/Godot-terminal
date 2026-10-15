@@ -17,7 +17,8 @@ config/features=PackedStringArray("4.7", "Forward Plus")
 run/low_processor_mode=true
 run/low_processor_mode_sleep_usec=16000
 boot_splash/bg_color=Color(0, 0, 0, 1)
-config/icon="res://icon.svg"
+boot_splash/image="uid://dn320ng4d5cag"
+config/icon="uid://cvnkb84hlic4g"
 
 [display]
 

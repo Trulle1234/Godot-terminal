@@ -155,6 +155,20 @@ func parse_line(line):
 	
 	return parts
 
+func has_arg(function, arg_name):
+	var obj = function.get_object()
+	var script = obj.get_script()
+	
+	for method in script.get_script_method_list():
+		if method["name"] != function.get_method():
+			continue
+		
+		for arg in method["args"]:
+			if arg["name"] == arg_name:
+				return true
+	
+	return false
+
 func handle_output(args, function, pipe_input=null, pipe=false):
 	var options = []
 	var new_args = []
@@ -170,6 +184,10 @@ func handle_output(args, function, pipe_input=null, pipe=false):
 
 	args = new_args
 	
+	if not has_arg(function, "options") and not options.is_empty():
+		terminal.write_output(function.get_method() + ": unrecognized option '" + options[0] + "'", "red")
+		return
+		
 	if await handle_redirect(args, options, function, pipe_input):
 		return
 	
@@ -375,7 +393,7 @@ func remove_recursive(path):
 	return DirAccess.remove_absolute(path)
 
 func get_wc_text(text_content, name, options):
-	var lines = text_content.trim_suffix("\n").count("\n")
+	var lines = text_content.count("\n")
 	var word_regex = RegEx.create_from_string(r"\S+")
 	var words = word_regex.search_all(text_content).size()
 	var bytes = text_content.to_utf8_buffer().size()
@@ -520,7 +538,7 @@ func ls(args, options, _pipe_input):
 	var valid_options = ["-a"]
 	for option in options:
 		if option not in valid_options:
-			return ["colors: unrecognized option '" + option + "'" , "red"]
+			return ["ls: unrecognized option '" + option + "'" , "red"]
 	
 	if args.is_empty():
 		args.append(terminal.working_dir)
@@ -558,7 +576,7 @@ func tree(args, options, _pipe_input):
 	var valid_options = ["-a"]
 	for option in options:
 		if option not in valid_options:
-			return ["colors: unrecognized option '" + option + "'" , "red"]
+			return ["tree: unrecognized option '" + option + "'" , "red"]
 	
 	if args.is_empty():
 		args.append(terminal.working_dir)
@@ -702,7 +720,7 @@ func wc(args, options, pipe_input):
 	var valid_options = ["-l", "-w", "-c"]
 	for option in options:
 		if option not in valid_options:
-			return ["colors: unrecognized option '" + option + "'" , "red"]
+			return ["wc: unrecognized option '" + option + "'" , "red"]
 	
 	if args.is_empty() and pipe_input == null:
 		return ["wc: missing file", "red"]
@@ -931,7 +949,7 @@ func gdpt(args, options, _pipe_input):
 	return "gdpt: installed " + str(installed) + " libraries successfully"
 
 func uname(_args, options, _pipe_input):
-	var valid_options = ["-a", "-s", "o-", "-r", "-n", "m", "-p", "-i"]
+	var valid_options = ["-a", "-s", "-o", "-r", "-n", "-m", "-p", "-i"]
 	for option in options:
 		if option not in valid_options:
 			return ["uname: unrecognized option '" + option + "'" , "red"]

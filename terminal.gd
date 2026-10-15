@@ -3,7 +3,7 @@ extends CodeEdit
 
 var busy = false
 
-var terminal_info = "Godot Terminal [Version 1.2]
+var terminal_info = "Godot Terminal [Version 1.2.1]
 Copyright (c) Trulle123 2026 - MIT License"
 
 var prompt
@@ -253,7 +253,7 @@ func _gui_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("paste"):
 		insert_text_at_caret(DisplayServer.clipboard_get().replace("\n", "; "))
 	
-	elif event.is_action_pressed("clear"):
+	elif event.is_action_pressed("clear") and not busy:
 		commands.execute("clear")
 		
 		set_caret_to_end()
@@ -276,10 +276,16 @@ func revert_text():
 func _on_text_changed() -> void:
 	if updating_output:
 		return
+		
+	if busy:
+		updating_output = true
+		revert_text()
+		updating_output = false
+		return
 	
 	var lines = text.split("\n")
 	var current_line_i = get_caret_line()
-	
+		
 	if current_line_i < lines.size() - 1:
 		revert_text()
 		return
