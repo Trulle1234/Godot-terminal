@@ -25,3 +25,6 @@ SOFTWARE.
 Godot terminal uses the font JetBrains Mono. 
 Copyright (c) 2020 The JetBrains Mono Project Authors
 Its license can be found at: https://scripts.sil.org/OFL
+
+Godot terminal has a modified version of the Godot Engine logo and splash screen
+Copyright (c) Andrea Calabró, licensed under CC BY 4.0
