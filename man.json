@@ -72,7 +72,7 @@
     },
     "rm": {
         "synopsis": "rm [option] [file]...",
-        "description": "Remove file(s)",
+        "description": "Remove file(s).",
         "options": "-r   Remove directories and their contents recursively."
     },
     "ping": {
@@ -111,7 +111,7 @@
     },
     "history": {
         "synopsis": "history",
-        "description": "Print history of entered commands, numbered"
+        "description": "Print history of entered commands, numbered."
     },
     "reset": {
         "synopsis": "reset",
@@ -120,6 +120,6 @@
     "colors": {
         "synopsis": "colors [option]",
         "description": "Prints all the colors of the terminal.",
-        "options": "-a   Also print hidden colors (black, bg, caret, selection and selected)"
+        "options": "-a   Also print hidden colors (black, bg, caret, selection and selected)."
     }
 }
