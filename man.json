@@ -1,0 +1,125 @@
+{
+    "pwd": {
+        "synopsis": "pwd",
+        "description": "Prints the absolute path of the current working directory."
+    },
+    "cd": {
+        "synopsis": "cd [directory]",
+        "description": "Change the current working directory. If none is given, change to home directory."
+    },
+    "mkdir": {
+        "synopsis": "mkdir [option] [directory]...",
+        "description": "Create directory(ies), if they do not already exist.",
+        "options": "-p   Make parent directories as needed."
+    },
+    "rmdir": {
+        "synopsis": "rmdir [directory]...",
+        "description": "Remove empty directories."
+    },
+    "ls": {
+        "synopsis": "ls [option] [directory]...",
+        "description": "List child directories and files of the directory (current directory by default).",
+        "options": "-a   Also list hidden files (Don't ignore entries starting with a dot)."
+    },
+    "tree": {
+        "synopsis": "tree [option] [directory]...",
+        "description": "Recursively list all child files and directories of the directory (current directory by default) as tree structure. Limited to depth three for performance.",
+        "options": "-a   Also list hidden files (Don't ignore entries starting with a dot)."
+    },
+    "echo": {
+        "synopsis": "echo [option] [string]",
+        "description": "Print the specified string.",
+        "options": "-e   Allow the use of escape characters (like \\n and \\t)."
+    },
+    "touch": {
+        "synopsis": "touch [file]...",
+        "description": "Create an empty file. If the file already exists, update the modification time."
+    },
+    "cat": {
+        "synopsis": "cat [option] [file]...",
+        "description": "Print and concatenate file contents.",
+        "options": "-n   Number output lines."
+    },
+    "head": {
+        "synopsis": "head [file]...",
+        "description": "Print the first line of file."
+    },
+    "tail": {
+        "synopsis": "tail [file]...",
+        "description": "Print the last line of file."
+    },
+    "wc": {
+        "synopsis": "wc [option]... [file]...",
+        "description": "Print newline, word, and byte counts of file.",
+        "options": "-l   Print line count.\n\t-w   Print word count.\n\t-c   Print byte count."
+    },
+    "sort": {
+        "synopsis": "sort [file]...",
+        "description": "Print sorted concatenation of all file(s)."
+    },
+    "grep": {
+        "synopsis": "grep [option]... [pattern] [file]...",
+        "description": "Search file(s) for lines matching a text pattern.",
+        "options": "-i   Ignore case distinctions.\n\t-v   Select non matching lines instead.\n\t-c   Print total number of matching lines."
+    },
+    "cp": {
+        "synopsis": "cp [source] [target]",
+        "description": "Copy source file to target file or into target directory."
+    },
+    "mv": {
+        "synopsis": "mv [source] [target]",
+        "description": "Move source file to target file or directory, or rename source file to target file."
+    },
+    "rm": {
+        "synopsis": "rm [option] [file]...",
+        "description": "Remove file(s)",
+        "options": "-r   Remove directories and their contents recursively."
+    },
+    "ping": {
+        "synopsis": "ping [url]",
+        "description": "Send a HTTP HEAD request to server and get time in ms."
+    },
+    "curl": {
+        "synopsis": "curl [url]",
+        "description": "Send an HTTP request to server and get site contents."
+    },
+    "gdpt": {
+        "synopsis": "gdpt [option]... [install/update] [file/url]...",
+        "description": "Install or update a library of commands in the from of a .gd file. Update overrides existing libraries of the same name, install does not.",
+        "options": "-r   Install fron url, send HTTP request and install contents as library.\n\t-t   Temporary install, don't save to disk."
+    },
+    "uname": {
+        "synopsis": "uname [option]...",
+        "description": "Print system information. If no optionns are givien the OS name is printed.",
+        "options": "-a   Print all information.\n\t-s, -o   Print OS name\n\t-r   Print OS version and it's alias.\n\t-n   Print hostname.\n\t-m, -p, -i   Print CPU architecture"
+    },
+    "whoami": {
+        "synopsis": "whoami",
+        "description": "Print the current user's username."
+    },
+    "clear": {
+        "synopsis": "clear",
+        "description": "Clear the terminal's screen."
+    },
+    "help": {
+        "synopsis": "help [command]...",
+        "description": "Print name and short information for command(s). If none is given, print information for all commands."
+    },
+    "man": {
+        "synopsis": "man [command]",
+        "description": "Print name, information and options for command."
+    },
+    "history": {
+        "synopsis": "history",
+        "description": "Print history of entered commands, numbered"
+    },
+    "reset": {
+        "synopsis": "reset",
+        "description": "Resets the terminal. Does not clear save data and styling."
+    },
+    "colors": {
+        "synopsis": "colors [option]",
+        "description": "Prints all the colors of the terminal.",
+        "options": "-a   Also print hidden colors (black, bg, caret, selection and selected)"
+    }
+}

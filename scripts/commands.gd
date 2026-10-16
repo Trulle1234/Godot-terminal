@@ -43,6 +43,7 @@ const COMMAND_INFO = {
 	"whoami": "Print the current user",
 	"clear": "Clear the terminal",
 	"help": "Print command information",
+	"man": "Print manual page for command",
 	"history": "Print command history",
 	"reset": "Resets the terminal",
 	"colors": "Display all colors"
@@ -54,6 +55,8 @@ var command_registry = {}
 var loaded_plugins = []
 
 var command_info = {}
+
+var man_dict
 
 func _init(terminal_ref) -> void:
 	terminal = terminal_ref
@@ -353,6 +356,8 @@ func install_plugin(path, remote=false, temp=false, overwrite=false):
 		instance = script.new()
 	elif init_args == 1:
 		instance = script.new(terminal)
+	elif init_args == 2:
+		instance = script.new(terminal, self)
 	else:
 		return ["gdpt: unsupported library constructor", "red"]
 		
@@ -617,10 +622,6 @@ func touch(args, _options, _pipe_input):
 	
 	for arg in args:
 		var path = solve_path(arg)
-		
-		if FileAccess.file_exists(path):
-			continue
-		
 		var file = FileAccess.open(path, FileAccess.WRITE)
 		
 		if not file:
@@ -1023,6 +1024,26 @@ func help(args, _options, _pipe_input):
 				text += command + "\n"
 	
 	return text.trim_suffix("\n")
+
+func man(args, _options, _pipe_input):
+	if not args:
+		return ["man: missing command name", "red"]
+	
+	var command = args[0]	
+	if not man_dict:
+		var file = FileAccess.open("res://man.json", FileAccess.READ)
+		man_dict = JSON.parse_string(file.get_as_text())
+	
+	if command not in man_dict:
+		return ["man: no mannual page found for '" + command + "'", "red"]
+	
+	var text = "NAME\n\t" + help([command], null, null) + "\n\n"
+	text += "SYNOPSIS\n\t" + man_dict[command]["synopsis"] + "\n\n"
+	text += "DESCRIPTION\n\t" + man_dict[command]["description"]
+	if "options" in man_dict[command]:
+		text += "\n\nOPTIONS\n\t" + man_dict[command]["options"]
+	
+	return text
 
 func history(_args, _options, _pipe_input):
 	var text = ""
