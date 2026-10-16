@@ -15,7 +15,8 @@ const COMMAND_BLACKLIST = [
 	"get_grep_text",
 	"register_commands",
 	"get_tree_text",
-	"install_plugin"
+	"install_plugin",
+	"split_unquoted"
 ]
 
 const COMMAND_INFO = {
@@ -67,10 +68,10 @@ func execute(command_line) -> void:
 	history_file.store_var(terminal.entered_commands)
 	history_file.close()
 	
-	var lines = command_line.split(";")
+	var lines = split_unquoted(command_line, ";")
 	
 	for line in lines:
-		var pipeline = line.split("|")
+		var pipeline = split_unquoted(line, "|")
 		var pipe_input = null
 		
 		for i in range(pipeline.size()):
@@ -158,6 +159,34 @@ func parse_line(line):
 	
 	return parts
 
+func split_unquoted(text, separator):
+	var parts = []
+	var current = ""
+	var quote = ""
+	var escaped = false
+	
+	for char in text:
+		if escaped:
+			current += char
+			escaped = false
+		elif char == "\\":
+			current += char
+			escaped = true
+		elif char == quote and quote != "":
+			quote = ""
+			current += char
+		elif char == '"' or char == "'":
+			quote = char
+			current += char
+		elif char == separator and quote == "":
+			parts.append(current)
+			current = ""
+		else:
+			current += char
+	
+	parts.append(current)
+	return parts
+	
 func has_arg(function, arg_name):
 	var obj = function.get_object()
 	var script = obj.get_script()

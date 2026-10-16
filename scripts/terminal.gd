@@ -220,9 +220,8 @@ func _gui_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("down_arrow"):
 		accept_event()
 		
-		var lines = text.split("\n")
-		var current_command = lines[-1].substr(prompt.length())
-		
+		var current_command = get_line(get_line_count() - 1).substr(prompt.length())
+			
 		if entered_commands.size() > 0:
 			if not last_previewd_command.is_empty():
 				text = text.left(text.length() - current_command.length())
@@ -251,7 +250,13 @@ func _gui_input(event: InputEvent) -> void:
 			DisplayServer.clipboard_set(get_selected_text())
 	
 	elif event.is_action_pressed("paste"):
-		insert_text_at_caret(DisplayServer.clipboard_get().replace("\n", "; "))
+		var current_command = get_line(get_line_count() - 1).substr(prompt.length())
+		var echo_e_regex = RegEx.create_from_string(r'(^\s*|;\s*|\|\s*)echo\s+-e(?=\s|$|;|\|)')
+		
+		if echo_e_regex.search(current_command):
+			insert_text_at_caret(DisplayServer.clipboard_get().replace("\n", "\\n"))
+		else:
+			insert_text_at_caret(DisplayServer.clipboard_get().replace("\n", "; "))
 	
 	elif event.is_action_pressed("clear") and not busy:
 		commands.execute("clear")
