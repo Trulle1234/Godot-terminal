@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://cku33nnvklh1c"]
 
-[ext_resource type="Script" uid="uid://bp72pweofys7g" path="res://terminal.gd" id="1_7d6gb"]
-[ext_resource type="Theme" uid="uid://cnhubinj5nmom" path="res://theme.tres" id="1_sxuvd"]
+[ext_resource type="Script" uid="uid://bp72pweofys7g" path="res://scripts/terminal.gd" id="1_7d6gb"]
+[ext_resource type="Theme" uid="uid://cnhubinj5nmom" path="res://assets/theme.tres" id="1_sxuvd"]
 
 [node name="Terminal" type="Control" unique_id=529887319]
 layout_mode = 3

@@ -1,6 +1,6 @@
 [gd_resource type="Theme" format=3 uid="uid://cnhubinj5nmom"]
 
-[ext_resource type="FontFile" uid="uid://b8pricvk3v3vx" path="res://JetBrainsMono-Bold.ttf" id="1_e1x85"]
+[ext_resource type="FontFile" uid="uid://b8pricvk3v3vx" path="res://assets/JetBrainsMono-Bold.ttf" id="1_e1x85"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_sxuvd"]
 content_margin_left = 8.0
