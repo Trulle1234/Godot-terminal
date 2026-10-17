@@ -110,7 +110,7 @@ func hello(_args, _options, _pipe_input):
     return ["Hello, world", "cyan"]
 ```
 
-For multiline output with diffrent colors;
+For multiline output with diffrent colors:
 ```gdscript
 func hello(_args, _options, _pipe_input):
     return [
