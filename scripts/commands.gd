@@ -54,6 +54,7 @@ var terminal: Terminal
 
 var command_registry = {}
 var loaded_plugins = []
+var plugin_commands = {}
 
 var command_info = {}
 
@@ -100,7 +101,7 @@ func execute(command_line) -> void:
 				else:
 					pipe_input =  await handle_output(args, command_registry[command], pipe_input, true)
 
-func register_commands(instance, file_name):
+func register_commands(instance, file_name, overwrite=false):
 	if not is_instance_valid(instance) or not instance.get_script():
 		return false
 	
@@ -117,16 +118,16 @@ func register_commands(instance, file_name):
 		
 		if name in blacklist or name.begins_with("_") or name == "get_command_blacklist" or name == "get_command_info":
 			continue
-		
 		if method.args.size() != 3:
 			continue
 		
 		var registered_name = name
 		
-		if name in command_registry:
+		if name in command_registry and not (overwrite and name in plugin_commands.get(file_name, [])):
 			registered_name = file_name + "." + name
-			
-		if registered_name in command_registry or registered_name in new_commands:
+		if registered_name in new_commands:
+			return false
+		if registered_name in command_registry and not (overwrite and registered_name in plugin_commands.get(file_name, [])):
 			return false
 			
 		new_commands[registered_name] = Callable(instance, name)
@@ -134,7 +135,12 @@ func register_commands(instance, file_name):
 	if instance.has_method("get_command_info"):
 			command_info.merge(instance.get_command_info(), true)
 	
-	command_registry.merge(new_commands)
+	if overwrite:
+		for old_name in plugin_commands.get(file_name, []):
+			command_registry.erase(old_name)
+	
+	plugin_commands[file_name] = new_commands.keys()
+	command_registry.merge(new_commands, true)
 	
 	terminal.highlighter.add_command_color(command_registry.keys(), "yellow")
 	return true
@@ -400,10 +406,10 @@ func install_plugin(path, remote=false, temp=false, overwrite=false):
 		var file =  FileAccess.open("user://libs/" + name + ".gd" , FileAccess.WRITE)
 		file.store_string(src)
 	
-	if not register_commands(instance, name) and not overwrite:
-		if not temp:
+	if not register_commands(instance, name, overwrite):
+		if not temp and not overwrite:
 			DirAccess.remove_absolute("user://libs/" + name + ".gd")
-		
+
 		return ["gdpt: invalid library interface", "red"]
 	
 	loaded_plugins.append(instance)
