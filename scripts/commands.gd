@@ -165,24 +165,24 @@ func split_unquoted(text, separator):
 	var quote = ""
 	var escaped = false
 	
-	for char in text:
+	for c in text:
 		if escaped:
-			current += char
+			current += c
 			escaped = false
-		elif char == "\\":
-			current += char
+		elif c == "\\":
+			current += c
 			escaped = true
-		elif char == quote and quote != "":
+		elif c == quote and quote != "":
 			quote = ""
-			current += char
-		elif char == '"' or char == "'":
-			quote = char
-			current += char
-		elif char == separator and quote == "":
+			current += c
+		elif c == '"' or c == "'":
+			quote = c
+			current += c
+		elif c == separator and quote == "":
 			parts.append(current)
 			current = ""
 		else:
-			current += char
+			current += c
 	
 	parts.append(current)
 	return parts
@@ -635,15 +635,27 @@ func tree(args, options, _pipe_input):
 	return all
 
 func echo(args, options, _pipe_input):
-	var valid_options = ["-e"]
+	var valid_options = ["-e", "-c"]
 	for option in options:
 		if option not in valid_options:
 			return ["echo: unrecognized option '" + option + "'" , "red"]
 	
+	var color = "white"
+	if "-c" in options:
+		if args.is_empty():
+			return ["echo: missing color", "red"]
+		
+		color = args.pop_front()
+		
+		if color not in terminal.highlighter.color_names:
+			return ["echo: color '" + color + "' does not exist", "red"]
+	
+	var text = " ".join(args)
+	
 	if "-e" in options:
-		return (" ".join(args)).c_unescape()
-	else:
-		return " ".join(args)
+		text = text.c_unescape()
+	
+	return [text, color]
 
 func touch(args, _options, _pipe_input):
 	if not args:
@@ -651,7 +663,11 @@ func touch(args, _options, _pipe_input):
 	
 	for arg in args:
 		var path = solve_path(arg)
-		var file = FileAccess.open(path, FileAccess.WRITE)
+		var file
+		if FileAccess.file_exists(path):
+			file = FileAccess.open(path, FileAccess.READ_WRITE)
+		else:
+			file = FileAccess.open(path, FileAccess.WRITE)
 		
 		if not file:
 			return ["touch: cannot touch '" + arg + "'", "red"]
@@ -1058,13 +1074,13 @@ func man(args, _options, _pipe_input):
 	if not args:
 		return ["man: missing command name", "red"]
 	
-	var command = args[0]	
+	var command = args[0]
 	if not man_dict:
 		var file = FileAccess.open("res://man.json", FileAccess.READ)
 		man_dict = JSON.parse_string(file.get_as_text())
 	
 	if command not in man_dict:
-		return ["man: no mannual page found for '" + command + "'", "red"]
+		return ["man: no manual page found for '" + command + "'", "red"]
 	
 	var text = "NAME\n\t" + help([command], null, null) + "\n\n"
 	text += "SYNOPSIS\n\t" + man_dict[command]["synopsis"] + "\n\n"

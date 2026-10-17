@@ -240,10 +240,12 @@ func _gui_input(event: InputEvent) -> void:
 			set_caret_to_end()
 	
 	elif event.is_action_pressed("zoom_in"):
+		accept_event()
 		theme.set_font_size("font_size", "CodeEdit", theme.get_font_size("font_size", "CodeEdit") + 1)
 		theme.set_constant("caret_width", "CodeEdit", int((theme.get_font_size("font_size", "CodeEdit")) * 0.625))
 		
 	elif event.is_action_pressed("zoom_out"):
+		accept_event()
 		var font_size = max(1, theme.get_font_size("font_size", "CodeEdit") - 1)
 		theme.set_font_size("font_size", "CodeEdit", font_size)
 		theme.set_constant("caret_width", "CodeEdit", int(font_size * 0.625))
