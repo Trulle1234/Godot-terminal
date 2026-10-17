@@ -4,7 +4,6 @@ extends RefCounted
 const COMMAND_BLACKLIST = [
 	"_init",
 	"execute",
-	"get_command_names",
 	"parse_line",
 	"handle_output",
 	"solve_path",
