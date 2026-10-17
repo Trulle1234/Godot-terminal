@@ -3,7 +3,7 @@ extends CodeEdit
 
 var busy = false
 
-var terminal_info = "Godot Terminal [Version 1.2.2]
+var terminal_info = "Godot Terminal [Version 1.2.3]
 Copyright (c) Trulle123 2026 - MIT License"
 
 var prompt
@@ -192,7 +192,9 @@ func _gui_input(event: InputEvent) -> void:
 			if thing.to_lower().begins_with(path_part.to_lower()):
 				matches.append(thing)
 		
-		if matches.size() == 1:
+		if matches:
+			matches.sort_custom(func(a, b): return a.length() < b.length()) 
+			
 			var completion = matches[0]
 			text = text.left(text.length() - path_part.length()) + completion
 			
@@ -239,17 +241,20 @@ func _gui_input(event: InputEvent) -> void:
 	
 	elif event.is_action_pressed("zoom_in"):
 		theme.set_font_size("font_size", "CodeEdit", theme.get_font_size("font_size", "CodeEdit") + 1)
-		theme.set_constant("caret_width", "CodeEdit", int((theme.get_font_size("font_size", "CodeEdit") + 1) * 0.625))
+		theme.set_constant("caret_width", "CodeEdit", int((theme.get_font_size("font_size", "CodeEdit")) * 0.625))
 		
 	elif event.is_action_pressed("zoom_out"):
-		theme.set_font_size("font_size", "CodeEdit", theme.get_font_size("font_size", "CodeEdit") - 1)
-		theme.set_constant("caret_width", "CodeEdit", int((theme.get_font_size("font_size", "CodeEdit") - 1) * 0.625))
+		var font_size = max(1, theme.get_font_size("font_size", "CodeEdit") - 1)
+		theme.set_font_size("font_size", "CodeEdit", font_size)
+		theme.set_constant("caret_width", "CodeEdit", int(font_size * 0.625))
 	
 	elif event.is_action_pressed("copy"):
+		accept_event()
 		if has_selection():
 			DisplayServer.clipboard_set(get_selected_text())
 	
 	elif event.is_action_pressed("paste"):
+		accept_event()
 		var current_command = get_line(get_line_count() - 1).substr(prompt.length())
 		var echo_e_regex = RegEx.create_from_string(r'(^\s*|;\s*|\|\s*)echo\s+-e(?=\s|$|;|\|)')
 		
@@ -259,6 +264,7 @@ func _gui_input(event: InputEvent) -> void:
 			insert_text_at_caret(DisplayServer.clipboard_get().replace("\n", "; "))
 	
 	elif event.is_action_pressed("clear") and not busy:
+		accept_event()
 		commands.execute("clear")
 		
 		set_caret_to_end()
@@ -341,11 +347,11 @@ func get_prompt():
 	if host.is_empty():
 		host = "localhost"
 	
-	var full_prompt = (user + "@" + host + ":" + working_dir.replace(get_home_dir(), "~") + "$ ")
-	var drive_regex = RegEx.create_from_string("([A-Za-z]):/")
-	full_prompt = drive_regex.sub(full_prompt, "/$1/", true)
+	var path = working_dir.replace(get_home_dir(), "~")
+	if path.length() >= 3 and path[1] == ":" and path[2] == "/":
+		path = "/" + path[0] + path.substr(2)
 	
-	return full_prompt
+	return user + "@" + host + ":" + path + "$ "
 
 func get_startup() -> String:
 	var user
