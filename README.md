@@ -106,16 +106,12 @@ func get_command_info():
 The simplest way to use color in your output is to return a two element array with a color name as stirng. Avalible color names are: `bg`, `caret`, `selection`, `selected` ,`black`, `red`, `green`, `yellow`, `blue`, `pink`, `cyan` and `white`.
 
 ```gdscript
-extends RefCounted
-
 func hello(_args, _options, _pipe_input):
     return ["Hello, world", "cyan"]
 ```
 
 For multiline output with diffrent colors;
 ```gdscript
-extends RefCounted
-
 func hello(_args, _options, _pipe_input):
     return [
         ["Hello", "cyan"],
