@@ -763,7 +763,9 @@ func tail(args, _options, pipe_input):
 			if not arg == args[args.size() - 1]:
 				text += "\n"
 		else:
-			text += file.get_as_text().split("\n", false)[-1]
+			var lines = file.get_as_text().split("\n", false)
+			if not lines.is_empty():
+				text += lines[-1]
 			
 	return text.trim_suffix("\n")
 
@@ -1116,21 +1118,21 @@ func colors(_args, options, _pipe_input):
 	
 	if "-a" in options:
 		lines.append_array([
-			["bg        ████   #" + terminal.syntax_highlighter.colors["bg"].to_html().to_upper(), "bg"],
-			["caret     ████   #" + terminal.syntax_highlighter.colors["caret"].to_html().to_upper(), "caret"],
-			["selection ████   #" + terminal.syntax_highlighter.colors["selection"].to_html().to_upper(), "selection"],
-			["selected  ████   #" + terminal.syntax_highlighter.colors["selected"].to_html().to_upper(), "selected"],
-			["black     ████   #" + terminal.syntax_highlighter.colors["black"].to_html().to_upper(), "black"],
+			["bg        ████   #" + terminal.highlighter.colors["bg"].to_html().to_upper(), "bg"],
+			["caret     ████   #" + terminal.highlighter.colors["caret"].to_html().to_upper(), "caret"],
+			["selection ████   #" + terminal.highlighter.colors["selection"].to_html().to_upper(), "selection"],
+			["selected  ████   #" + terminal.highlighter.colors["selected"].to_html().to_upper(), "selected"],
+			["black     ████   #" + terminal.highlighter.colors["black"].to_html().to_upper(), "black"],
 		])
 	
 	lines.append_array([
-		["white     ████   #" + terminal.syntax_highlighter.colors["white"].to_html().to_upper(), "white"],
-		["red       ████   #" + terminal.syntax_highlighter.colors["red"].to_html().to_upper(), "red"],
-		["yellow    ████   #" + terminal.syntax_highlighter.colors["yellow"].to_html().to_upper(), "yellow"],
-		["pink      ████   #" + terminal.syntax_highlighter.colors["pink"].to_html().to_upper(), "pink"],
-		["green     ████   #" + terminal.syntax_highlighter.colors["green"].to_html().to_upper(), "green"],
-		["cyan      ████   #" + terminal.syntax_highlighter.colors["cyan"].to_html().to_upper(), "cyan"],
-		["blue      ████   #" + terminal.syntax_highlighter.colors["blue"].to_html().to_upper(), "blue"],
+		["white     ████   #" + terminal.highlighter.colors["white"].to_html().to_upper(), "white"],
+		["red       ████   #" + terminal.highlighter.colors["red"].to_html().to_upper(), "red"],
+		["yellow    ████   #" + terminal.highlighter.colors["yellow"].to_html().to_upper(), "yellow"],
+		["pink      ████   #" + terminal.highlighter.colors["pink"].to_html().to_upper(), "pink"],
+		["green     ████   #" + terminal.highlighter.colors["green"].to_html().to_upper(), "green"],
+		["cyan      ████   #" + terminal.highlighter.colors["cyan"].to_html().to_upper(), "cyan"],
+		["blue      ████   #" + terminal.highlighter.colors["blue"].to_html().to_upper(), "blue"],
 	])
 		
 	return lines
