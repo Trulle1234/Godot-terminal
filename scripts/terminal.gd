@@ -3,7 +3,7 @@ extends CodeEdit
 
 var busy = false
 
-var terminal_info = "Godot Terminal [Version 1.2.3]
+var terminal_info = "Godot Terminal [Version 1.2.4]
 Copyright (c) Trulle123 2026 - MIT License"
 
 var prompt
