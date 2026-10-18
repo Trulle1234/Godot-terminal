@@ -118,7 +118,7 @@ func _gui_input(event: InputEvent) -> void:
 		var last_line = get_line_count() - 1
 		var locked_column = prompt.length()
 		
-		if event.keycode == KEY_BACKSPACE:
+		if event.keycode == KEY_BACKSPACE or event.keycode == KEY_LEFT:
 			if get_caret_line() < last_line:
 				accept_event()
 				return
@@ -126,7 +126,7 @@ func _gui_input(event: InputEvent) -> void:
 				accept_event()
 				return
 		
-		elif event.keycode == KEY_DELETE:
+		elif event.keycode == KEY_DELETE or event.keycode == KEY_RIGHT:
 			if get_caret_line() < last_line:
 				accept_event()
 				return
